@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+        "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<!--
+    Checkstyle Suppressions
+    Suppress checks on generated or framework code where violations are unavoidable.
+-->
+<suppressions>
+    <!-- Suppress all checks on generated QueryDSL classes -->
+    <suppress files="Q[A-Z].*\.java" checks=".*"/>
+
+    <!-- Suppress all checks on MapStruct generated mappers -->
+    <suppress files=".*MapperImpl\.java" checks=".*"/>
+
+    <!-- Suppress method length for Spring configuration classes (often long @Bean chains) -->
+    <suppress files=".*Config\.java" checks="MethodLength"/>
+
+    <!-- Suppress parameter count for entity constructors (Hibernate) -->
+    <suppress files=".*Entity\.java" checks="ParameterNumber"/>
+</suppressions>

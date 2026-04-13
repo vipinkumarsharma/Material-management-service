@@ -1,0 +1,104 @@
+// material_management prod Jenkinsfile
+// Updated 16-03-2026, Neetesh
+// Last Change: added java 25, added fetch Maven Settings stage
+
+
+pipeline {
+    agent any
+
+    options {
+        skipDefaultCheckout()
+        skipStagesAfterUnstable()
+    }
+
+    tools {
+        maven 'maven:3.8.5'
+        jdk 'Java:25'
+    }
+
+    triggers {
+        bitbucketPush()
+    }
+
+    parameters {
+        string(name: 'BRANCH', defaultValue: '', description: 'Select Git branch', trim: 'true')
+        string(name: 'DEPLOYMENT_COMMENT_USERNAME',
+               defaultValue: '',
+               description: 'Please provide your name with a reason for this deployment')
+
+    }
+
+    environment {
+        EB_APP_NAME        = "Material_Management"
+        EB_ENV_NAME        = "Prod-material-management"
+        ARTIFACT_NAME      = "authorization-3.5.5-SNAPSHOT-${BUILD_ID}.war"
+        ARTIFACT_S3_BUCKET = "prod-cms-build-artifacts"
+        EB_APP_VERSION     = "auth_svc-v.${BUILD_ID}"
+        DESCRIPTION        = "auth_svc-${BUILD_ID}"
+        AWS_DEFAULT_REGION = "ap-south-1"
+        PROD_NEXUS_CREDS   = "s3://prod-cddevops/AppConfigs/prod-nexusrepo/settings.xml settings.xml"
+    }
+
+    stages {
+        stage('SCM_CheckOut') {
+            steps {
+                // publishing build_start status to Bitbucket
+                bitbucketStatusNotify(buildState: 'INPROGRESS')
+                git branch: '${BRANCH}',
+                    changelog: false,
+                    credentialsId: 'c048dd49-4c79-4036-b140-f208ca7058d3',
+                    poll: false,
+                    url: 'https://cddevops@bitbucket.org/countrydelightcd/cd-material-management.git'
+                echo "SCM checkout was successful to ==> ${BRANCH} branch"
+                echo "Deployment triggered by: ${params.DEPLOYMENT_COMMENT_USERNAME}"
+            }
+        }
+
+        stage('Fetch Maven Settings') {
+            steps {
+                script {
+                    sh "aws s3 cp ${env.PROD_NEXUS_CREDS} --region ${env.AWS_DEFAULT_REGION}"
+                    echo "Fetched Maven settings.xml for prod"
+                }
+            }
+        }
+
+        stage('Build & Publish') {
+            steps {
+                sh 'java --version' // Confirm Java version
+                sh 'mvn clean install -DskipTests -s settings.xml'
+                echo 'Maven build has successfully created and analysed with SonarQube'
+
+                // Publish build artifacts to S3
+                echo "Publishing artifact --> $ARTIFACT_NAME <-- to S3"
+                sh "aws s3 cp ./target/material-management-system-1.0.0.jar s3://$ARTIFACT_S3_BUCKET/${EB_ENV_NAME}/$ARTIFACT_NAME --quiet"
+                echo "Maven build artifact was successfully uploaded to S3 bucket :: ${ARTIFACT_S3_BUCKET}"
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh "aws configure set default.region ${AWS_DEFAULT_REGION}"
+                sh "aws elasticbeanstalk create-application-version --application-name ${EB_APP_NAME} --version-label ${EB_APP_VERSION} --source-bundle S3Bucket=$ARTIFACT_S3_BUCKET,S3Key=${EB_ENV_NAME}/$ARTIFACT_NAME"
+                sh "aws elasticbeanstalk update-environment --application-name ${EB_APP_NAME} --environment-name ${EB_ENV_NAME} --version-label $EB_APP_VERSION --description $DESCRIPTION"
+
+                // Wait for the environment update to complete
+                echo "Waiting for Elastic Beanstalk deployment to succeed..."
+                sh "aws elasticbeanstalk wait environment-updated --environment-names ${EB_ENV_NAME}"
+                echo "Elastic Beanstalk deployment succeeded!"
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            bitbucketStatusNotify(buildState: 'SUCCESSFUL')
+        }
+        failure {
+            bitbucketStatusNotify(buildState: 'FAILED')
+        }
+    }
+}

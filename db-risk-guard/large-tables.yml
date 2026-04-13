@@ -1,0 +1,58 @@
+# ============================================================
+# DB Risk Guard - Large Tables Configuration (MMS)
+# ============================================================
+# Tables that could grow large and need query risk analysis.
+# Risk levels: LOW (1M+) | MEDIUM (10M+) | HIGH (50M+) | VERY_HIGH (100M+) | CRITICAL (500M+)
+# ============================================================
+
+large_tables:
+  # --- Append-only ledger (single source of truth) ---
+  - table: material_stock_ledger
+    approx_rows: 10_000_000
+    risk_level: MEDIUM
+
+  # --- Materialized stock summary ---
+  - table: branch_material_stock
+    approx_rows: 1_000_000
+    risk_level: LOW
+
+  # --- FIFO consumption records ---
+  - table: issue_fifo_consumption
+    approx_rows: 5_000_000
+    risk_level: LOW
+
+  # --- GRN (Goods Receipt) ---
+  - table: grn_header
+    approx_rows: 1_000_000
+    risk_level: LOW
+
+  - table: grn_detail
+    approx_rows: 5_000_000
+    risk_level: LOW
+
+  # --- Issue (Material Out) ---
+  - table: issue_header
+    approx_rows: 1_000_000
+    risk_level: LOW
+
+  - table: issue_detail
+    approx_rows: 5_000_000
+    risk_level: LOW
+
+  # --- Transfer ---
+  - table: stock_transfer_header
+    approx_rows: 1_000_000
+    risk_level: LOW
+
+  - table: stock_transfer_detail
+    approx_rows: 1_000_000
+    risk_level: LOW
+
+  # --- Dept Transfer ---
+  - table: dept_transfer_header
+    approx_rows: 1_000_000
+    risk_level: LOW
+
+  - table: dept_transfer_detail
+    approx_rows: 1_000_000
+    risk_level: LOW

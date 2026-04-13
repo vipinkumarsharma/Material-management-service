@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    OWASP Dependency Check Suppressions
+    Add verified false positives here with justification and review date.
+    Review this file quarterly — suppress, don't forget.
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+    <!--
+        TEMPLATE: Copy this block when adding a new suppression.
+
+        <suppress>
+            <notes><![CDATA[
+                Reviewed by: [name]
+                Date: [YYYY-MM-DD]
+                Reason: [Why this is a false positive or why risk is accepted]
+                Review date: [When to re-evaluate this suppression]
+            ]]></notes>
+            <gav regex="true">.*:artifact-name:.*</gav>
+            <cve>CVE-YYYY-NNNNN</cve>
+        </suppress>
+    -->
+
+    <!-- Example: Spring Boot managed dependencies with known non-exploitable CVEs -->
+    <!--
+    <suppress>
+        <notes><![CDATA[
+            Reviewed by: Platform Team
+            Date: 2024-01-15
+            Reason: CVE applies to standalone usage, not Spring Boot embedded context
+            Review date: 2024-04-15
+        ]]></notes>
+        <gav regex="true">.*:tomcat-embed-core:.*</gav>
+        <cve>CVE-2024-XXXXX</cve>
+    </suppress>
+    -->
+
+</suppressions>

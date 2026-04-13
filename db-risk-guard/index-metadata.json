@@ -1,0 +1,72 @@
+{
+  "material_stock_ledger": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["ledger_id"] },
+    { "indexName": "idx_ledger_branch_item", "isUnique": false, "columns": ["branch_id", "item_id"] },
+    { "indexName": "idx_ledger_location", "isUnique": false, "columns": ["location_id"] },
+    { "indexName": "idx_ledger_txn_date", "isUnique": false, "columns": ["txn_date"] },
+    { "indexName": "idx_ledger_txn_type", "isUnique": false, "columns": ["txn_type"] },
+    { "indexName": "idx_ledger_ref", "isUnique": false, "columns": ["txn_type", "ref_id"] },
+    { "indexName": "idx_ledger_dept", "isUnique": false, "columns": ["dept_id"] }
+  ],
+  "branch_material_stock": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["branch_id", "item_id", "location_id"] },
+    { "indexName": "idx_bms_item", "isUnique": false, "columns": ["item_id"] },
+    { "indexName": "idx_bms_location", "isUnique": false, "columns": ["location_id"] }
+  ],
+  "issue_fifo_consumption": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["consumption_id"] },
+    { "indexName": "idx_fifo_grn", "isUnique": false, "columns": ["grn_id", "item_id"] }
+  ],
+  "grn_header": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["grn_id"] },
+    { "indexName": "idx_grn_branch", "isUnique": false, "columns": ["branch_id"] },
+    { "indexName": "idx_grn_supplier", "isUnique": false, "columns": ["supp_id"] },
+    { "indexName": "idx_grn_date", "isUnique": false, "columns": ["grn_date"] },
+    { "indexName": "idx_grn_status", "isUnique": false, "columns": ["status"] },
+    { "indexName": "idx_grn_po", "isUnique": false, "columns": ["po_id"] },
+    { "indexName": "idx_grn_dept", "isUnique": false, "columns": ["dept_id"] }
+  ],
+  "grn_detail": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["grn_id", "item_id"] },
+    { "indexName": "idx_grnd_item", "isUnique": false, "columns": ["item_id"] },
+    { "indexName": "idx_grnd_location", "isUnique": false, "columns": ["location_id"] }
+  ],
+  "issue_header": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["issue_id"] },
+    { "indexName": "idx_issue_branch", "isUnique": false, "columns": ["branch_id"] },
+    { "indexName": "idx_issue_date", "isUnique": false, "columns": ["issue_date"] },
+    { "indexName": "idx_issue_status", "isUnique": false, "columns": ["status"] },
+    { "indexName": "idx_issue_dept", "isUnique": false, "columns": ["dept_id"] },
+    { "indexName": "idx_issue_type", "isUnique": false, "columns": ["issue_type"] },
+    { "indexName": "idx_issue_supp", "isUnique": false, "columns": ["supp_id"] }
+  ],
+  "issue_detail": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["issue_id", "item_id"] },
+    { "indexName": "idx_issued_item", "isUnique": false, "columns": ["item_id"] },
+    { "indexName": "idx_issued_location", "isUnique": false, "columns": ["location_id"] }
+  ],
+  "stock_transfer_header": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["transfer_id"] },
+    { "indexName": "idx_transfer_from", "isUnique": false, "columns": ["from_branch"] },
+    { "indexName": "idx_transfer_to", "isUnique": false, "columns": ["to_branch"] },
+    { "indexName": "idx_transfer_date", "isUnique": false, "columns": ["transfer_date"] },
+    { "indexName": "idx_transfer_status", "isUnique": false, "columns": ["status"] },
+    { "indexName": "idx_transfer_dept", "isUnique": false, "columns": ["dept_id"] }
+  ],
+  "stock_transfer_detail": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["transfer_id", "item_id"] },
+    { "indexName": "idx_std_item", "isUnique": false, "columns": ["item_id"] }
+  ],
+  "dept_transfer_header": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["dept_transfer_id"] },
+    { "indexName": "idx_dth_branch", "isUnique": false, "columns": ["branch_id"] },
+    { "indexName": "idx_dth_from_dept", "isUnique": false, "columns": ["from_dept_id"] },
+    { "indexName": "idx_dth_to_dept", "isUnique": false, "columns": ["to_dept_id"] },
+    { "indexName": "idx_dth_date", "isUnique": false, "columns": ["transfer_date"] }
+  ],
+  "dept_transfer_detail": [
+    { "indexName": "PRIMARY", "isUnique": true, "columns": ["dept_transfer_id", "item_id"] },
+    { "indexName": "idx_dtd_item", "isUnique": false, "columns": ["item_id"] },
+    { "indexName": "idx_dtd_location", "isUnique": false, "columns": ["location_id"] }
+  ]
+}

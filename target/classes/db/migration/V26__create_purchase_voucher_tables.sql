@@ -1,0 +1,67 @@
+-- V26: Purchase Voucher Header and Detail
+
+CREATE TABLE purchase_voucher_header (
+    pv_id                 BIGINT        AUTO_INCREMENT PRIMARY KEY,
+    voucher_number        VARCHAR(50),
+    voucher_type_id       VARCHAR(20),
+    branch_id             VARCHAR(20)   NOT NULL,
+    supp_id               VARCHAR(20)   NOT NULL,
+    pv_date               DATE          NOT NULL,
+    effective_date        DATE,
+    grn_id                BIGINT,
+    po_id                 BIGINT,
+    invoice_id            BIGINT,
+    supplier_invoice_no   VARCHAR(100),
+    supplier_invoice_date DATE,
+    status                VARCHAR(20)   NOT NULL DEFAULT 'DRAFT',
+    is_optional           TINYINT(1)    DEFAULT 0,
+    gross_amount          DECIMAL(15,2) DEFAULT 0,
+    discount_amount       DECIMAL(15,2) DEFAULT 0,
+    gst_amount            DECIMAL(15,2) DEFAULT 0,
+    cess_amount           DECIMAL(15,2) DEFAULT 0,
+    net_amount            DECIMAL(15,2) DEFAULT 0,
+    round_off_amount      DECIMAL(15,2) DEFAULT 0,
+    narration             TEXT,
+    created_by            VARCHAR(100),
+    approved_by           VARCHAR(100),
+    approved_at           DATETIME,
+    created_at            TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_pvh_voucher_type FOREIGN KEY (voucher_type_id) REFERENCES voucher_type_master(voucher_type_id),
+    CONSTRAINT fk_pvh_branch FOREIGN KEY (branch_id) REFERENCES branch_master(branch_id),
+    CONSTRAINT fk_pvh_supplier FOREIGN KEY (supp_id) REFERENCES supplier_master(supp_id),
+    CONSTRAINT fk_pvh_grn FOREIGN KEY (grn_id) REFERENCES grn_header(grn_id),
+    CONSTRAINT fk_pvh_po FOREIGN KEY (po_id) REFERENCES po_header(po_id),
+    CONSTRAINT fk_pvh_invoice FOREIGN KEY (invoice_id) REFERENCES supplier_invoice(invoice_id),
+
+    INDEX idx_pv_branch (branch_id),
+    INDEX idx_pv_supp   (supp_id),
+    INDEX idx_pv_date   (pv_date),
+    INDEX idx_pv_status (status),
+    INDEX idx_pv_grn    (grn_id)
+);
+
+CREATE TABLE purchase_voucher_detail (
+    pv_id           BIGINT        NOT NULL,
+    item_id         VARCHAR(20)   NOT NULL,
+    unit_id         VARCHAR(20),
+    location_id     VARCHAR(20),
+    qty             DECIMAL(15,4) DEFAULT 0,
+    rate            DECIMAL(15,4) DEFAULT 0,
+    gross_amount    DECIMAL(15,2) DEFAULT 0,
+    discount_perc   DECIMAL(5,2)  DEFAULT 0,
+    discount_amount DECIMAL(15,2) DEFAULT 0,
+    gst_perc        DECIMAL(5,2)  DEFAULT 0,
+    gst_amount      DECIMAL(15,2) DEFAULT 0,
+    cess_perc       DECIMAL(5,2)  DEFAULT 0,
+    cess_amount     DECIMAL(15,2) DEFAULT 0,
+    net_amount      DECIMAL(15,2) DEFAULT 0,
+    line_narration  TEXT,
+
+    PRIMARY KEY (pv_id, item_id),
+    CONSTRAINT fk_pvd_header  FOREIGN KEY (pv_id)      REFERENCES purchase_voucher_header(pv_id),
+    CONSTRAINT fk_pvd_item    FOREIGN KEY (item_id)    REFERENCES item_master(item_id),
+    CONSTRAINT fk_pvd_unit    FOREIGN KEY (unit_id)    REFERENCES unit_master(unit_id),
+    CONSTRAINT fk_pvd_location FOREIGN KEY (location_id) REFERENCES location_master(location_id)
+);

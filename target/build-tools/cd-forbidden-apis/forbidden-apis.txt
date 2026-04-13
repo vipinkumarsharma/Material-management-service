@@ -1,0 +1,69 @@
+# ==============================================================================
+# Forbidden APIs Configuration
+# ==============================================================================
+# These API calls are banned in production code. Each entry blocks the specified
+# method signature at the bytecode level — no regex, no false positives.
+#
+# Format: fully.qualified.ClassName#methodName(paramTypes)
+# Append " @ reason" to document why it's banned.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# THREADING: Ban raw thread creation
+# --------------------------------------------------------------------------
+# Use Spring's @Async, TaskExecutor, or managed thread pools instead.
+java.lang.Thread#<init>() @ Do not create raw threads. Use Spring TaskExecutor or @Async.
+java.lang.Thread#<init>(java.lang.Runnable) @ Do not create raw threads. Use Spring TaskExecutor or @Async.
+java.lang.Thread#<init>(java.lang.Runnable,java.lang.String) @ Do not create raw threads. Use Spring TaskExecutor or @Async.
+
+# --------------------------------------------------------------------------
+# THREADING: Ban unbounded thread pools
+# --------------------------------------------------------------------------
+# Unbounded pools can cause OOM under load. Use bounded pools with rejection policies.
+java.util.concurrent.Executors#newFixedThreadPool(int) @ Use ThreadPoolTaskExecutor with bounded queue and rejection policy.
+java.util.concurrent.Executors#newCachedThreadPool() @ Unbounded thread pool. Use ThreadPoolTaskExecutor with limits.
+java.util.concurrent.Executors#newSingleThreadExecutor() @ Use Spring-managed single-thread executor.
+java.util.concurrent.Executors#newScheduledThreadPool(int) @ Use Spring @Scheduled or ThreadPoolTaskScheduler.
+
+# --------------------------------------------------------------------------
+# SERIALIZATION: Ban unmanaged ObjectMapper
+# --------------------------------------------------------------------------
+# ObjectMapper is expensive to create and should be shared. Use Spring's injected bean.
+com.fasterxml.jackson.databind.ObjectMapper#<init>() @ Do not create ObjectMapper instances. Inject the Spring-managed bean.
+com.fasterxml.jackson.databind.ObjectMapper#<init>(com.fasterxml.jackson.core.JsonFactory) @ Do not create ObjectMapper instances. Inject the Spring-managed bean.
+
+# --------------------------------------------------------------------------
+# LOGGING: Ban System.out/err (all overloads)
+# --------------------------------------------------------------------------
+java.io.PrintStream#println() @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#println(java.lang.String) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#println(java.lang.Object) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#println(int) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#println(long) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#println(boolean) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#println(char) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#println(double) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#print(java.lang.String) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#print(java.lang.Object) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#print(int) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#print(long) @ Use SLF4J Logger instead of System.out/err.
+java.io.PrintStream#printf(java.lang.String,java.lang.Object[]) @ Use SLF4J Logger instead of System.out.printf.
+java.lang.Throwable#printStackTrace() @ Use log.error("message", exception) instead of printStackTrace().
+
+# --------------------------------------------------------------------------
+# DATE/TIME: Ban legacy date APIs
+# --------------------------------------------------------------------------
+# Use java.time.* (JSR-310) instead.
+java.util.Date#<init>() @ Use java.time.Instant.now() or java.time.LocalDateTime.now().
+java.util.Calendar#getInstance() @ Use java.time.* APIs (LocalDate, LocalDateTime, ZonedDateTime).
+
+# --------------------------------------------------------------------------
+# SECURITY: Ban weak hashing
+# --------------------------------------------------------------------------
+java.security.MessageDigest#getInstance(java.lang.String) @ Use Spring Security's password encoders or verified crypto utilities.
+
+# --------------------------------------------------------------------------
+# HTTP: Ban deprecated HTTP clients
+# --------------------------------------------------------------------------
+# All HTTP calls should go through a configured RestTemplate/WebClient bean with timeouts.
+org.apache.http.impl.client.HttpClients#createDefault() @ Use Spring RestTemplate/WebClient with configured timeouts.

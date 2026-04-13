@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DB Risk Guard - Query Risk Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+
+        .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 1px solid #334155; padding: 24px 32px; }
+        .header h1 { font-size: 24px; font-weight: 700; color: #f8fafc; }
+        .header .subtitle { color: #94a3b8; font-size: 14px; margin-top: 4px; }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+
+        /* Summary Cards */
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+        .summary-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+        .summary-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 4px; }
+        .summary-card .value { font-size: 32px; font-weight: 700; }
+        .summary-card .detail { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+
+        /* Risk Level Colors */
+        .risk-critical { color: #ef4444; }
+        .risk-very_high { color: #f97316; }
+        .risk-high { color: #eab308; }
+        .risk-medium { color: #3b82f6; }
+        .risk-low { color: #22c55e; }
+
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge-critical { background: #450a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+        .badge-very_high { background: #431407; color: #fdba74; border: 1px solid #7c2d12; }
+        .badge-high { background: #422006; color: #fde047; border: 1px solid #713f12; }
+        .badge-medium { background: #172554; color: #93c5fd; border: 1px solid #1e3a5f; }
+        .badge-low { background: #052e16; color: #86efac; border: 1px solid #14532d; }
+
+        /* Charts Section */
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+        .chart-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 24px; }
+        .chart-card h3 { font-size: 14px; font-weight: 600; color: #cbd5e1; margin-bottom: 16px; }
+
+        /* Bar Chart */
+        .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+        .bar-row { display: flex; align-items: center; gap: 12px; }
+        .bar-label { width: 160px; font-size: 13px; color: #94a3b8; text-align: right; flex-shrink: 0; }
+        .bar-track { flex: 1; height: 28px; background: #0f172a; border-radius: 6px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; padding-left: 10px; font-size: 12px; font-weight: 600; color: #fff; min-width: 32px; transition: width 0.6s ease; }
+        .bar-count { width: 40px; font-size: 13px; font-weight: 600; text-align: right; flex-shrink: 0; }
+
+        /* Filters */
+        .filters { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .filter-btn { padding: 6px 16px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .filter-btn:hover { border-color: #475569; color: #e2e8f0; }
+        .filter-btn.active { background: #334155; color: #f8fafc; border-color: #475569; }
+        .filter-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* Findings Table */
+        .section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #f1f5f9; }
+        .findings-table { width: 100%; border-collapse: collapse; }
+        .findings-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 12px 16px; border-bottom: 1px solid #334155; background: #1e293b; position: sticky; top: 0; }
+        .findings-table td { padding: 14px 16px; border-bottom: 1px solid #1e293b; font-size: 13px; vertical-align: top; }
+        .findings-table tr { transition: background 0.15s; }
+        .findings-table tr:hover { background: #1e293b; }
+
+        .file-link { color: #60a5fa; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+        .method-name { color: #c084fc; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+
+        .sql-preview { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; color: #94a3b8; background: #0f172a; padding: 8px 12px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; max-height: 80px; overflow: hidden; cursor: pointer; transition: max-height 0.3s ease; border: 1px solid #1e293b; }
+        .sql-preview.expanded { max-height: 400px; overflow: auto; }
+        .sql-preview:hover { border-color: #334155; }
+
+        .reason-text { color: #fbbf24; font-size: 12px; }
+        .fix-text { color: #34d399; font-size: 12px; }
+
+        .source-badge { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; background: #1e293b; border: 1px solid #334155; color: #94a3b8; }
+
+        /* Scan Info */
+        .scan-info { display: flex; gap: 24px; font-size: 12px; color: #64748b; margin-top: 8px; }
+        .scan-info span { display: flex; align-items: center; gap: 4px; }
+
+        /* File Drop Zone (JSON mode) */
+        .drop-zone { display: none; border: 2px dashed #334155; border-radius: 12px; padding: 48px; text-align: center; margin-bottom: 32px; transition: all 0.2s; }
+        .drop-zone.visible { display: block; }
+        .drop-zone.dragover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
+        .drop-zone p { color: #64748b; margin-bottom: 12px; }
+        .drop-zone input[type="file"] { display: none; }
+        .drop-zone label { color: #3b82f6; cursor: pointer; text-decoration: underline; }
+
+        /* === Mode Tabs === */
+        .mode-tabs { display: flex; gap: 4px; margin-top: 12px; }
+        .mode-tab { padding: 6px 20px; border-radius: 8px 8px 0 0; border: 1px solid #334155; border-bottom: none; background: #0f172a; color: #64748b; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .mode-tab:hover { color: #e2e8f0; }
+        .mode-tab.active { background: #1e293b; color: #f8fafc; border-color: #475569; }
+
+        /* === CSV Upload Grid === */
+        .upload-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        .upload-zone { border: 2px dashed #334155; border-radius: 12px; padding: 24px; text-align: center; transition: all 0.2s; cursor: pointer; min-height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .upload-zone:hover { border-color: #475569; }
+        .upload-zone.dragover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
+        .upload-zone.success { border-color: #22c55e; border-style: solid; background: rgba(34, 197, 94, 0.05); }
+        .upload-zone.error { border-color: #ef4444; border-style: solid; background: rgba(239, 68, 68, 0.05); }
+        .upload-zone .zone-icon { font-size: 28px; margin-bottom: 8px; }
+        .upload-zone .zone-title { font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+        .upload-zone .zone-desc { font-size: 11px; color: #64748b; line-height: 1.4; }
+        .upload-zone .zone-status { font-size: 12px; margin-top: 8px; font-weight: 500; }
+        .upload-zone .zone-status.ok { color: #22c55e; }
+        .upload-zone .zone-status.err { color: #ef4444; }
+        .upload-zone input[type="file"] { display: none; }
+
+        /* === Analyze Button === */
+        .analyze-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 32px; border-radius: 10px; border: none; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 32px; }
+        .analyze-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+        .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+        .analyze-btn .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        .analyze-btn.loading .spinner { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* === Advisory Cards === */
+        .advisory-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 12px; }
+        .advisory-card .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .advisory-card .problem-type { font-size: 12px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .advisory-card .suggestion-text { color: #fbbf24; font-size: 13px; margin-bottom: 10px; }
+        .advisory-card .sql-block { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; color: #94a3b8; background: #0f172a; padding: 10px 12px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; max-height: 60px; overflow: hidden; cursor: pointer; transition: max-height 0.3s ease; border: 1px solid #1e293b; margin-bottom: 8px; }
+        .advisory-card .sql-block.expanded { max-height: 400px; overflow: auto; }
+        .advisory-card .sql-fix { position: relative; }
+        .advisory-card .sql-fix-block { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; color: #34d399; background: #052e16; padding: 10px 12px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; border: 1px solid #14532d; }
+        .advisory-card .copy-btn { position: absolute; top: 6px; right: 6px; padding: 3px 10px; border-radius: 4px; border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer; font-size: 11px; transition: all 0.2s; }
+        .advisory-card .copy-btn:hover { color: #e2e8f0; border-color: #475569; }
+        .advisory-card .meta-row { display: flex; gap: 16px; margin-top: 8px; font-size: 11px; color: #64748b; }
+
+        /* === Detail Panel (Sync Summary) === */
+        .detail-panel { background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
+        .detail-panel .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; cursor: pointer; transition: background 0.15s; }
+        .detail-panel .panel-header:hover { background: #253348; }
+        .detail-panel .panel-header h3 { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+        .detail-panel .panel-header .toggle { color: #64748b; font-size: 18px; transition: transform 0.2s; }
+        .detail-panel .panel-header .toggle.open { transform: rotate(90deg); }
+        .detail-panel .panel-body { display: none; padding: 0 20px 14px; }
+        .detail-panel .panel-body.open { display: block; }
+        .detail-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #0f172a; font-size: 13px; }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-row .name { color: #e2e8f0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+        .detail-row .info { color: #94a3b8; font-size: 12px; }
+
+        /* === Section visibility === */
+        .section-hidden { display: none; }
+        .section-visible { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* === Tip Box === */
+        .tip-box { background: #172554; border: 1px solid #1e3a5f; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; font-size: 13px; color: #93c5fd; }
+        .tip-box a { color: #60a5fa; }
+
+        @media (max-width: 768px) {
+            .charts-grid { grid-template-columns: 1fr; }
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            .upload-grid { grid-template-columns: 1fr; }
+            .container { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>DB Risk Guard</h1>
+    <div class="subtitle">Static SQL Query Risk Analysis Report</div>
+    <div class="scan-info" id="scanInfo"></div>
+    <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="csv">CSV Analysis</button>
+        <button class="mode-tab" data-mode="json">JSON Report</button>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- ==================== CSV ANALYSIS MODE ==================== -->
+    <div id="csvMode" class="section-visible">
+
+        <div class="tip-box">
+            Need help exporting CSVs from your database? <a href="export-helper.html" target="_blank">Open the Export Helper</a> for guided queries.
+        </div>
+
+        <!-- Upload Grid -->
+        <div class="upload-grid">
+            <div class="upload-zone" id="zoneTable" data-csv="tables">
+                <div class="zone-icon">&#128451;</div>
+                <div class="zone-title">tables.csv</div>
+                <div class="zone-desc">TABLE_NAME, TABLE_ROWS</div>
+                <div class="zone-status" id="zoneTableStatus"></div>
+                <input type="file" id="fileTable" accept=".csv,.tsv,.txt">
+            </div>
+            <div class="upload-zone" id="zoneIndex" data-csv="indexes">
+                <div class="zone-icon">&#128209;</div>
+                <div class="zone-title">indexes.csv</div>
+                <div class="zone-desc">TABLE_NAME, INDEX_NAME, NON_UNIQUE, SEQ_IN_INDEX, COLUMN_NAME</div>
+                <div class="zone-status" id="zoneIndexStatus"></div>
+                <input type="file" id="fileIndex" accept=".csv,.tsv,.txt">
+            </div>
+            <div class="upload-zone" id="zoneSlowQuery" data-csv="slow_queries">
+                <div class="zone-icon">&#9201;</div>
+                <div class="zone-title">slow_queries.csv</div>
+                <div class="zone-desc">DIGEST_TEXT, COUNT_STAR, AVG_MS, SUM_ROWS_EXAMINED, SUM_ROWS_SENT, FIRST_SEEN, LAST_SEEN</div>
+                <div class="zone-status" id="zoneSlowQueryStatus"></div>
+                <input type="file" id="fileSlowQuery" accept=".csv,.tsv,.txt">
+            </div>
+        </div>
+
+        <!-- Sync Summary -->
+        <div id="syncSummary" class="section-hidden"></div>
+
+        <!-- Analyze Button -->
+        <div id="analyzeSection" class="section-hidden" style="text-align:center;">
+            <button class="analyze-btn" id="analyzeBtn" disabled>
+                <span class="spinner"></span>
+                Analyze Slow Queries
+            </button>
+        </div>
+
+        <!-- Advisory Results -->
+        <div id="advisoryResults" class="section-hidden"></div>
+    </div>
+
+    <!-- ==================== JSON REPORT MODE ==================== -->
+    <div id="jsonMode" class="section-hidden">
+        <!-- Drop zone for loading external JSON -->
+        <div class="drop-zone visible" id="dropZone">
+            <p>Drop a <strong>risk-report.json</strong> file here, or <label for="fileInput">browse</label></p>
+            <input type="file" id="fileInput" accept=".json">
+            <p style="font-size: 12px; margin-top: 8px;">Or the report will load automatically if embedded below.</p>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-grid" id="summaryCards"></div>
+
+        <!-- Charts -->
+        <div class="charts-grid" id="chartsSection" style="display:none;">
+            <div class="chart-card">
+                <h3>Findings by Risk Level</h3>
+                <div class="bar-chart" id="riskLevelChart"></div>
+            </div>
+            <div class="chart-card">
+                <h3>Findings by Rule</h3>
+                <div class="bar-chart" id="ruleChart"></div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters" id="filters" style="display:none;">
+            <span class="filter-label">Filter:</span>
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="CRITICAL">Critical</button>
+            <button class="filter-btn" data-filter="VERY_HIGH">Very High</button>
+            <button class="filter-btn" data-filter="HIGH">High</button>
+            <button class="filter-btn" data-filter="MEDIUM">Medium</button>
+            <button class="filter-btn" data-filter="LOW">Low</button>
+        </div>
+
+        <!-- Findings Table -->
+        <h2 class="section-title" id="findingsTitle" style="display:none;">Detailed Findings</h2>
+        <table class="findings-table" id="findingsTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th style="width:40px;">#</th>
+                    <th style="width:90px;">Risk</th>
+                    <th style="width:180px;">Rule</th>
+                    <th>Location</th>
+                    <th style="width:100px;">Source</th>
+                    <th style="width:35%;">SQL / Details</th>
+                </tr>
+            </thead>
+            <tbody id="findingsBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// Constants
+// ============================================================
+const RISK_ORDER = ['CRITICAL', 'VERY_HIGH', 'HIGH', 'MEDIUM', 'LOW'];
+const RISK_COLORS = {
+    CRITICAL: '#ef4444', VERY_HIGH: '#f97316', HIGH: '#eab308', MEDIUM: '#3b82f6', LOW: '#22c55e'
+};
+const RULE_LABELS = {
+    MISSING_INDEXED_WHERE: 'Missing Indexed WHERE',
+    PARTIAL_INDEX_WHERE: 'Partial Index WHERE',
+    NON_INDEXED_ORDER_BY: 'Non-Indexed ORDER BY',
+    MISSING_LIMIT: 'Missing LIMIT',
+    SELECT_STAR: 'SELECT *',
+    NON_INDEXED_JOIN: 'Non-Indexed JOIN',
+    HEAVILY_INDEXED_INSERT: 'Heavy Index INSERT',
+    UPDATE_DELETE_WITHOUT_WHERE: 'UPDATE/DELETE No WHERE',
+    MISSING_PAGINATION: 'Missing Pagination'
+};
+const PROBLEM_LABELS = {
+    UNPARSEABLE_QUERY: 'Unparseable Query',
+    SELECT_STAR: 'SELECT *',
+    FULL_TABLE_SCAN: 'Full Table Scan',
+    MISSING_INDEX: 'Missing Index',
+    PARTIAL_INDEX: 'Partial Index',
+    NON_INDEXED_ORDER_BY: 'Non-Indexed ORDER BY',
+    NON_INDEXED_JOIN: 'Non-Indexed JOIN',
+    HIGH_SCAN_RATIO: 'High Scan Ratio'
+};
+const MIN_ROWS_THRESHOLD = 1000000;
+
+// ============================================================
+// CsvParser — Port of CsvConfigSync utility methods
+// ============================================================
+const CsvParser = {
+    detectDelimiter(headerLine) {
+        let tabs = 0, commas = 0;
+        for (let i = 0; i < headerLine.length; i++) {
+            if (headerLine[i] === '\t') tabs++;
+            if (headerLine[i] === ',') commas++;
+        }
+        return (tabs >= commas && tabs > 0) ? '\t' : ',';
+    },
+
+    splitLine(line, delimiter) {
+        if (delimiter === ',') {
+            // Handle quoted fields for comma-delimited CSV
+            const fields = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (ch === '"') {
+                    if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (ch === ',' && !inQuotes) {
+                    fields.push(current);
+                    current = '';
+                } else {
+                    current += ch;
+                }
+            }
+            fields.push(current);
+            return fields;
+        }
+        return line.split(delimiter);
+    },
+
+    findColumnIndex(headers, name) {
+        const target = name.toLowerCase().trim();
+        for (let i = 0; i < headers.length; i++) {
+            if (this.unquote(headers[i]).toLowerCase().trim() === target) return i;
+        }
+        return -1;
+    },
+
+    unquote(value) {
+        if (value == null) return '';
+        let trimmed = value.trim();
+        if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+            return trimmed.substring(1, trimmed.length - 1);
+        }
+        return trimmed;
+    },
+
+    parseNumber(value) {
+        try {
+            const cleaned = value.trim().replace(/[_,]/g, '');
+            if (cleaned === '') return 0;
+            return parseFloat(cleaned) || 0;
+        } catch (e) {
+            return 0;
+        }
+    }
+};
+
+// ============================================================
+// ConfigBuilder — Port of CsvConfigSync.parseTablesCsv/parseIndexesCsv
+// ============================================================
+const ConfigBuilder = {
+    riskLevelFromRows(rows) {
+        if (rows >= 500000000) return 'CRITICAL';
+        if (rows >= 100000000) return 'VERY_HIGH';
+        if (rows >= 50000000) return 'HIGH';
+        if (rows >= 10000000) return 'MEDIUM';
+        return 'LOW';
+    },
+
+    parseTables(csvText) {
+        const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+        if (lines.length === 0) throw new Error('Empty file');
+        const delimiter = CsvParser.detectDelimiter(lines[0]);
+        const headers = CsvParser.splitLine(lines[0], delimiter);
+        const nameIdx = CsvParser.findColumnIndex(headers, 'TABLE_NAME');
+        const rowsIdx = CsvParser.findColumnIndex(headers, 'TABLE_ROWS');
+        if (nameIdx < 0) throw new Error('Missing TABLE_NAME column');
+        if (rowsIdx < 0) throw new Error('Missing TABLE_ROWS column');
+
+        const tables = new Map();
+        for (let i = 1; i < lines.length; i++) {
+            const parts = CsvParser.splitLine(lines[i], delimiter);
+            if (parts.length <= Math.max(nameIdx, rowsIdx)) continue;
+            const tableName = CsvParser.unquote(parts[nameIdx]).toLowerCase().trim();
+            const rows = Math.floor(CsvParser.parseNumber(CsvParser.unquote(parts[rowsIdx])));
+            if (tableName && rows >= MIN_ROWS_THRESHOLD) {
+                tables.set(tableName, { rows, riskLevel: this.riskLevelFromRows(rows) });
+            }
+        }
+        return tables;
+    },
+
+    parseIndexes(csvText) {
+        const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+        if (lines.length === 0) throw new Error('Empty file');
+        const delimiter = CsvParser.detectDelimiter(lines[0]);
+        const headers = CsvParser.splitLine(lines[0], delimiter);
+        const tableIdx = CsvParser.findColumnIndex(headers, 'TABLE_NAME');
+        const indexIdx = CsvParser.findColumnIndex(headers, 'INDEX_NAME');
+        const uniqueIdx = CsvParser.findColumnIndex(headers, 'NON_UNIQUE');
+        const seqIdx = CsvParser.findColumnIndex(headers, 'SEQ_IN_INDEX');
+        const colIdx = CsvParser.findColumnIndex(headers, 'COLUMN_NAME');
+
+        const missing = [];
+        if (tableIdx < 0) missing.push('TABLE_NAME');
+        if (indexIdx < 0) missing.push('INDEX_NAME');
+        if (uniqueIdx < 0) missing.push('NON_UNIQUE');
+        if (seqIdx < 0) missing.push('SEQ_IN_INDEX');
+        if (colIdx < 0) missing.push('COLUMN_NAME');
+        if (missing.length > 0) throw new Error('Missing columns: ' + missing.join(', '));
+
+        // builders: Map<tableName, Map<indexName, {name, isUnique, columns: SortedMap}>>
+        const builders = new Map();
+        for (let i = 1; i < lines.length; i++) {
+            const parts = CsvParser.splitLine(lines[i], delimiter);
+            const maxIdx = Math.max(tableIdx, indexIdx, uniqueIdx, seqIdx, colIdx);
+            if (parts.length <= maxIdx) continue;
+
+            const tableName = CsvParser.unquote(parts[tableIdx]).toLowerCase().trim();
+            const indexName = CsvParser.unquote(parts[indexIdx]).trim();
+            const nonUnique = CsvParser.unquote(parts[uniqueIdx]).trim() !== '0';
+            const seq = Math.floor(CsvParser.parseNumber(CsvParser.unquote(parts[seqIdx])));
+            const columnName = CsvParser.unquote(parts[colIdx]).toLowerCase().trim();
+
+            if (!builders.has(tableName)) builders.set(tableName, new Map());
+            const tableBuilders = builders.get(tableName);
+            if (!tableBuilders.has(indexName)) {
+                tableBuilders.set(indexName, { name: indexName, isUnique: !nonUnique, columnsMap: new Map() });
+            }
+            tableBuilders.get(indexName).columnsMap.set(seq, columnName);
+        }
+
+        // Convert to final structure: Map<tableName, [{indexName, isUnique, columns: []}]>
+        const result = new Map();
+        for (const [tableName, indexMap] of builders) {
+            const indexes = [];
+            for (const builder of indexMap.values()) {
+                const sortedKeys = [...builder.columnsMap.keys()].sort((a, b) => a - b);
+                const columns = sortedKeys.map(k => builder.columnsMap.get(k));
+                indexes.push({ indexName: builder.name, isUnique: builder.isUnique, columns });
+            }
+            result.set(tableName, indexes);
+        }
+        return result;
+    },
+
+    parseSlowQueries(csvText) {
+        const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+        if (lines.length === 0) throw new Error('Empty file');
+        const delimiter = CsvParser.detectDelimiter(lines[0]);
+        const headers = CsvParser.splitLine(lines[0], delimiter);
+
+        const digestIdx = CsvParser.findColumnIndex(headers, 'DIGEST_TEXT');
+        if (digestIdx < 0) throw new Error('Missing DIGEST_TEXT column');
+
+        const countIdx = CsvParser.findColumnIndex(headers, 'COUNT_STAR');
+        const avgMsIdx = CsvParser.findColumnIndex(headers, 'AVG_MS');
+        const rowsExIdx = CsvParser.findColumnIndex(headers, 'SUM_ROWS_EXAMINED');
+        const rowsSentIdx = CsvParser.findColumnIndex(headers, 'SUM_ROWS_SENT');
+        const firstSeenIdx = CsvParser.findColumnIndex(headers, 'FIRST_SEEN');
+        const lastSeenIdx = CsvParser.findColumnIndex(headers, 'LAST_SEEN');
+
+        const entries = [];
+        for (let i = 1; i < lines.length; i++) {
+            const parts = CsvParser.splitLine(lines[i], delimiter);
+            if (parts.length <= digestIdx) continue;
+            const digest = CsvParser.unquote(parts[digestIdx]);
+            if (!digest.trim()) continue;
+
+            entries.push({
+                digestText: digest,
+                countStar: safeGetNum(parts, countIdx),
+                avgMs: safeGetNum(parts, avgMsIdx),
+                rowsExamined: safeGetNum(parts, rowsExIdx),
+                rowsSent: safeGetNum(parts, rowsSentIdx),
+                firstSeen: safeGetStr(parts, firstSeenIdx),
+                lastSeen: safeGetStr(parts, lastSeenIdx)
+            });
+        }
+        return entries;
+
+        function safeGetNum(parts, idx) {
+            if (idx < 0 || idx >= parts.length) return 0;
+            return CsvParser.parseNumber(CsvParser.unquote(parts[idx]));
+        }
+        function safeGetStr(parts, idx) {
+            if (idx < 0 || idx >= parts.length) return '';
+            return CsvParser.unquote(parts[idx]);
+        }
+    }
+};
+
+// ============================================================
+// SqlParserLight — Lightweight regex-based SQL parser
+// ============================================================
+const SqlParserLight = {
+    parse(sql) {
+        if (!sql || !sql.trim()) return null;
+        const s = sql.trim();
+        const upper = s.toUpperCase();
+
+        // Determine statement type
+        const isSelect = /^\s*SELECT\b/i.test(s);
+        if (!isSelect) return null; // Only handle SELECT for advisory
+
+        try {
+            const primaryTable = this._extractFromTable(s);
+            if (!primaryTable) return null;
+
+            return {
+                primaryTable,
+                isSelectStar: this._isSelectStar(s),
+                hasWhere: /\bWHERE\b/i.test(s),
+                whereColumns: this._extractWhereColumns(s),
+                orderByColumns: this._extractOrderByColumns(s),
+                joinTables: this._extractJoinTables(s),
+                joinColumns: this._extractJoinColumns(s),
+                hasLimit: /\bLIMIT\b/i.test(s)
+            };
+        } catch (e) {
+            return null;
+        }
+    },
+
+    _extractFromTable(sql) {
+        // Match FROM table_name (with optional alias)
+        // Handle: FROM table, FROM schema.table, FROM `table` t
+        const match = sql.match(/\bFROM\s+[`"]?(\w+)[`"]?(?:\s*\.\s*[`"]?(\w+)[`"]?)?/i);
+        if (!match) return null;
+        // If schema.table, use table part; otherwise use the match
+        return (match[2] || match[1]).toLowerCase();
+    },
+
+    _isSelectStar(sql) {
+        // Match SELECT * or SELECT alias.* as first part
+        return /^\s*SELECT\s+(\w+\s*\.\s*)?\*/i.test(sql);
+    },
+
+    _extractWhereColumns(sql) {
+        const columns = new Set();
+        // Extract part after WHERE and before ORDER BY / GROUP BY / HAVING / LIMIT
+        const whereMatch = sql.match(/\bWHERE\b([\s\S]*?)(?:\bORDER\s+BY\b|\bGROUP\s+BY\b|\bHAVING\b|\bLIMIT\b|$)/i);
+        if (!whereMatch) return columns;
+        const wherePart = whereMatch[1];
+
+        // Match column references: col = ?, t.col = ?, `col` = ?
+        // Handles: col = ?, col IN (...), col IS NULL, col >= ?, col LIKE ?, col BETWEEN ? AND ?
+        const colPattern = /(?:(?:\w+)\s*\.\s*)?[`"]?(\w+)[`"]?\s*(?:=|!=|<>|>=?|<=?|IN\s*\(|\bIS\b|\bLIKE\b|\bBETWEEN\b|\bNOT\s+IN\b)/gi;
+        let m;
+        while ((m = colPattern.exec(wherePart)) !== null) {
+            const col = m[1].toLowerCase();
+            // Filter out SQL keywords that might match
+            if (!this._isSqlKeyword(col)) {
+                columns.add(col);
+            }
+        }
+        return columns;
+    },
+
+    _extractOrderByColumns(sql) {
+        const columns = [];
+        const match = sql.match(/\bORDER\s+BY\b([\s\S]*?)(?:\bLIMIT\b|\bFOR\s+UPDATE\b|$)/i);
+        if (!match) return columns;
+        const parts = match[1].split(',');
+        for (const part of parts) {
+            const colMatch = part.trim().match(/(?:(?:\w+)\s*\.\s*)?[`"]?(\w+)[`"]?/i);
+            if (colMatch && !this._isSqlKeyword(colMatch[1])) {
+                columns.push(colMatch[1].toLowerCase());
+            }
+        }
+        return columns;
+    },
+
+    _extractJoinTables(sql) {
+        const tables = [];
+        const pattern = /\bJOIN\s+[`"]?(\w+)[`"]?/gi;
+        let m;
+        while ((m = pattern.exec(sql)) !== null) {
+            tables.push(m[1].toLowerCase());
+        }
+        return tables;
+    },
+
+    _extractJoinColumns(sql) {
+        // Returns Map<tableName, Set<colName>>
+        const result = new Map();
+        // Match each JOIN ... ON clause
+        const joinPattern = /\bJOIN\s+[`"]?(\w+)[`"]?(?:\s+(?:AS\s+)?[`"]?\w+[`"]?)?\s+ON\s+([\s\S]*?)(?=\bJOIN\b|\bWHERE\b|\bORDER\b|\bGROUP\b|\bLIMIT\b|\bHAVING\b|$)/gi;
+        let jm;
+        while ((jm = joinPattern.exec(sql)) !== null) {
+            const joinTable = jm[1].toLowerCase();
+            const onClause = jm[2];
+            const cols = new Set();
+            // Extract columns from ON clause
+            const colPat = /(?:(?:\w+)\s*\.\s*)?[`"]?(\w+)[`"]?\s*=/gi;
+            let cm;
+            while ((cm = colPat.exec(onClause)) !== null) {
+                const col = cm[1].toLowerCase();
+                if (!this._isSqlKeyword(col)) {
+                    cols.add(col);
+                }
+            }
+            result.set(joinTable, cols);
+        }
+        return result;
+    },
+
+    _isSqlKeyword(word) {
+        const kw = word.toUpperCase();
+        return ['SELECT','FROM','WHERE','AND','OR','NOT','NULL','IN','IS','LIKE','BETWEEN',
+                'ORDER','BY','GROUP','HAVING','LIMIT','JOIN','LEFT','RIGHT','INNER','OUTER',
+                'ON','AS','SET','INTO','VALUES','UPDATE','DELETE','INSERT','CREATE','DROP',
+                'ALTER','TABLE','INDEX','TRUE','FALSE','ASC','DESC','DISTINCT','ALL','EXISTS',
+                'CASE','WHEN','THEN','ELSE','END','UNION','EXCEPT','INTERSECT','FOR','OFFSET'].includes(kw);
+    }
+};
+
+// ============================================================
+// IndexCoverageChecker — Direct port of IndexCoverageChecker.java
+// ============================================================
+const IndexCoverageChecker = {
+    // Coverage enum
+    FULL: 'FULL_COVERAGE',
+    PARTIAL: 'PARTIAL_COVERAGE',
+    NONE: 'NO_COVERAGE',
+
+    checkCoverage(indexMetadata, tableName, queryColumns) {
+        if (!queryColumns || queryColumns.size === 0) {
+            return { coverage: this.NONE, indexName: null, columnsMatched: 0, totalColumns: 0 };
+        }
+
+        const indexes = indexMetadata.get(tableName.toLowerCase());
+        if (!indexes || indexes.length === 0) {
+            return { coverage: this.NONE, indexName: null, columnsMatched: 0, totalColumns: 0 };
+        }
+
+        let best = { coverage: this.NONE, indexName: null, columnsMatched: 0, totalColumns: 0 };
+
+        for (const index of indexes) {
+            const result = this._checkIndex(index, queryColumns);
+            if (this._isBetter(result, best)) {
+                best = result;
+            }
+        }
+        return best;
+    },
+
+    _checkIndex(index, queryColumns) {
+        const indexColumns = index.columns;
+        let matched = 0;
+
+        // Leftmost-prefix: walk index columns in order, count consecutive matches
+        for (const indexCol of indexColumns) {
+            if (queryColumns.has(indexCol.toLowerCase())) {
+                matched++;
+            } else {
+                break; // Gap in prefix
+            }
+        }
+
+        if (matched === 0) {
+            return { coverage: this.NONE, indexName: index.indexName, columnsMatched: 0, totalColumns: indexColumns.length };
+        }
+
+        // Check if all query columns are in the matched prefix
+        const prefixCols = new Set();
+        for (let i = 0; i < matched; i++) {
+            prefixCols.add(indexColumns[i].toLowerCase());
+        }
+        let allCovered = true;
+        for (const qc of queryColumns) {
+            if (!prefixCols.has(qc.toLowerCase())) {
+                allCovered = false;
+                break;
+            }
+        }
+
+        if (allCovered) {
+            return { coverage: this.FULL, indexName: index.indexName, columnsMatched: matched, totalColumns: indexColumns.length };
+        }
+        return { coverage: this.PARTIAL, indexName: index.indexName, columnsMatched: matched, totalColumns: indexColumns.length };
+    },
+
+    _isBetter(a, b) {
+        const ord = { FULL_COVERAGE: 0, PARTIAL_COVERAGE: 1, NO_COVERAGE: 2 };
+        if (ord[a.coverage] < ord[b.coverage]) return true;
+        if (a.coverage === b.coverage) return a.columnsMatched > b.columnsMatched;
+        return false;
+    }
+};
+
+// ============================================================
+// SlowQueryAdvisor — Port of SlowQueryAdvisor.java
+// ============================================================
+const SlowQueryAdvisor = {
+    advise(slowQueries, indexMetadata, largeTables) {
+        const advisories = [];
+        let queriesWithAdvisories = 0;
+
+        for (const entry of slowQueries) {
+            try {
+                const queryAdvs = this._analyzeSlowQuery(entry, indexMetadata, largeTables);
+                if (queryAdvs.length > 0) {
+                    queriesWithAdvisories++;
+                    advisories.push(...queryAdvs);
+                }
+            } catch (e) {
+                // Per-query error — don't break whole analysis
+                advisories.push({
+                    digestText: truncate(entry.digestText, 200),
+                    problem: 'UNPARSEABLE_QUERY',
+                    riskLevel: 'MEDIUM',
+                    suggestion: 'Error analyzing this query: ' + e.message,
+                    sqlFix: null,
+                    avgMs: entry.avgMs,
+                    countStar: entry.countStar,
+                    rowsExamined: entry.rowsExamined,
+                    rowsSent: entry.rowsSent
+                });
+                queriesWithAdvisories++;
+            }
+        }
+
+        // Aggregate stats
+        const byRiskLevel = {};
+        const byProblem = {};
+        for (const a of advisories) {
+            byRiskLevel[a.riskLevel] = (byRiskLevel[a.riskLevel] || 0) + 1;
+            byProblem[a.problem] = (byProblem[a.problem] || 0) + 1;
+        }
+
+        return {
+            totalSlowQueries: slowQueries.length,
+            queriesWithAdvisories,
+            advisories,
+            byRiskLevel,
+            byProblem
+        };
+    },
+
+    _analyzeSlowQuery(entry, indexMetadata, largeTables) {
+        const advisories = [];
+        const digest = entry.digestText;
+        const meta = { avgMs: entry.avgMs, countStar: entry.countStar, rowsExamined: entry.rowsExamined, rowsSent: entry.rowsSent };
+
+        const parsed = SqlParserLight.parse(digest);
+        if (!parsed) {
+            advisories.push({
+                digestText: truncate(digest, 200),
+                problem: 'UNPARSEABLE_QUERY',
+                riskLevel: 'MEDIUM',
+                suggestion: 'Could not parse this query for analysis. Review manually.',
+                sqlFix: null,
+                ...meta
+            });
+            return advisories;
+        }
+
+        const table = parsed.primaryTable;
+
+        // SELECT * check
+        if (parsed.isSelectStar) {
+            const tableInfo = largeTables.get(table);
+            const risk = tableInfo ? tableInfo.riskLevel : 'LOW';
+            advisories.push({
+                digestText: truncate(digest, 200),
+                problem: 'SELECT_STAR',
+                riskLevel: risk,
+                suggestion: 'SELECT * on ' + table + ' fetches all columns. Specify only needed columns to reduce I/O.',
+                sqlFix: 'SELECT col1, col2, ... FROM ' + table + ' ...',
+                ...meta
+            });
+        }
+
+        // Full table scan — no WHERE on large table
+        if (!parsed.hasWhere && largeTables.has(table)) {
+            const tableInfo = largeTables.get(table);
+            const risk = tableInfo ? tableInfo.riskLevel : 'HIGH';
+            advisories.push({
+                digestText: truncate(digest, 200),
+                problem: 'FULL_TABLE_SCAN',
+                riskLevel: risk,
+                suggestion: 'No WHERE clause on ' + table + ' (' + formatRows(tableInfo) + ' rows). This causes a full table scan.',
+                sqlFix: 'Add WHERE clause or LIMIT to restrict rows.',
+                ...meta
+            });
+        }
+
+        // WHERE columns not indexed
+        if (parsed.whereColumns.size > 0) {
+            const coverage = IndexCoverageChecker.checkCoverage(indexMetadata, table, parsed.whereColumns);
+            const hasAnyIndex = indexMetadata.has(table.toLowerCase()) && indexMetadata.get(table.toLowerCase()).length > 0;
+
+            if (coverage.coverage === IndexCoverageChecker.NONE && hasAnyIndex) {
+                const cols = [...parsed.whereColumns];
+                advisories.push({
+                    digestText: truncate(digest, 200),
+                    problem: 'MISSING_INDEX',
+                    riskLevel: 'HIGH',
+                    suggestion: 'WHERE columns [' + cols.join(', ') + '] on ' + table + ' are not covered by any index.',
+                    sqlFix: 'CREATE INDEX idx_' + table + '_' + cols.join('_') + ' ON ' + table + '(' + cols.join(', ') + ');',
+                    ...meta
+                });
+            } else if (coverage.coverage === IndexCoverageChecker.PARTIAL) {
+                const cols = [...parsed.whereColumns];
+                advisories.push({
+                    digestText: truncate(digest, 200),
+                    problem: 'PARTIAL_INDEX',
+                    riskLevel: 'MEDIUM',
+                    suggestion: 'WHERE columns [' + cols.join(', ') + '] on ' + table + ' only partially covered by index '
+                        + coverage.indexName + ' (' + coverage.columnsMatched + '/' + coverage.totalColumns + ' prefix match).',
+                    sqlFix: 'CREATE INDEX idx_' + table + '_' + cols.join('_') + ' ON ' + table + '(' + cols.join(', ') + ');',
+                    ...meta
+                });
+            }
+        }
+
+        // Non-indexed ORDER BY
+        if (parsed.orderByColumns.length > 0) {
+            const orderSet = new Set(parsed.orderByColumns);
+            const orderCoverage = IndexCoverageChecker.checkCoverage(indexMetadata, table, orderSet);
+            if (orderCoverage.coverage === IndexCoverageChecker.NONE) {
+                advisories.push({
+                    digestText: truncate(digest, 200),
+                    problem: 'NON_INDEXED_ORDER_BY',
+                    riskLevel: 'MEDIUM',
+                    suggestion: 'ORDER BY columns [' + parsed.orderByColumns.join(', ') + '] on ' + table
+                        + ' are not indexed. MySQL must sort in memory or on disk (filesort).',
+                    sqlFix: 'CREATE INDEX idx_' + table + '_' + parsed.orderByColumns.join('_')
+                        + ' ON ' + table + '(' + parsed.orderByColumns.join(', ') + ');',
+                    ...meta
+                });
+            }
+        }
+
+        // Non-indexed JOIN columns
+        for (const [joinTable, joinCols] of parsed.joinColumns) {
+            if (joinCols.size > 0) {
+                const joinCoverage = IndexCoverageChecker.checkCoverage(indexMetadata, joinTable, joinCols);
+                if (joinCoverage.coverage === IndexCoverageChecker.NONE) {
+                    const cols = [...joinCols];
+                    advisories.push({
+                        digestText: truncate(digest, 200),
+                        problem: 'NON_INDEXED_JOIN',
+                        riskLevel: 'HIGH',
+                        suggestion: 'JOIN columns [' + cols.join(', ') + '] on ' + joinTable + ' are not indexed.',
+                        sqlFix: 'CREATE INDEX idx_' + joinTable + '_' + cols.join('_')
+                            + ' ON ' + joinTable + '(' + cols.join(', ') + ');',
+                        ...meta
+                    });
+                }
+            }
+        }
+
+        // High scan ratio
+        if (entry.rowsSent > 0 && entry.rowsExamined > 0) {
+            const ratio = Math.floor(entry.rowsExamined / entry.rowsSent);
+            if (ratio > 1000) {
+                advisories.push({
+                    digestText: truncate(digest, 200),
+                    problem: 'HIGH_SCAN_RATIO',
+                    riskLevel: 'HIGH',
+                    suggestion: 'Examining ' + formatNum(entry.rowsExamined) + ' rows to return ' + formatNum(entry.rowsSent)
+                        + ' rows (ratio: ' + ratio + ':1). This indicates a missing or inefficient index.',
+                    sqlFix: 'Review WHERE clause and ensure proper index coverage.',
+                    ...meta
+                });
+            }
+        }
+
+        return advisories;
+    }
+};
+
+// ============================================================
+// Utility functions
+// ============================================================
+function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function truncate(s, maxLen) {
+    return s.length <= maxLen ? s : s.substring(0, maxLen) + '...';
+}
+
+function formatRows(tableInfo) {
+    if (!tableInfo) return 'unknown';
+    const rows = tableInfo.rows;
+    if (rows >= 1000000000) return (rows / 1000000000).toFixed(1) + 'B';
+    if (rows >= 1000000) return (rows / 1000000).toFixed(1) + 'M';
+    return rows.toLocaleString();
+}
+
+function formatNum(n) {
+    if (n >= 1000000000) return (n / 1000000000).toFixed(1) + 'B';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return String(Math.floor(n));
+}
+
+// ============================================================
+// UIRenderer — State management and DOM manipulation
+// ============================================================
+const UI = {
+    // State
+    currentMode: 'csv',
+    csvState: {
+        tables: null,       // Map<name, {rows, riskLevel}>
+        indexes: null,      // Map<name, [{indexName, isUnique, columns}]>
+        slowQueries: null,  // [{digestText, ...}]
+        advisoryReport: null
+    },
+    jsonReportData: null,
+    jsonCurrentFilter: 'all',
+    csvCurrentFilter: 'all',
+
+    init() {
+        this._setupModeTabs();
+        this._setupUploadZones();
+        this._setupAnalyzeButton();
+        this._setupJsonMode();
+        this._autoLoadEmbeddedReport();
+    },
+
+    // --- Mode Tabs ---
+    _setupModeTabs() {
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                this.currentMode = tab.dataset.mode;
+                document.getElementById('csvMode').className = this.currentMode === 'csv' ? 'section-visible' : 'section-hidden';
+                document.getElementById('jsonMode').className = this.currentMode === 'json' ? 'section-visible' : 'section-hidden';
+            });
+        });
+    },
+
+    // --- Upload Zones ---
+    _setupUploadZones() {
+        const zones = [
+            { zoneId: 'zoneTable', inputId: 'fileTable', key: 'tables', parser: 'parseTables' },
+            { zoneId: 'zoneIndex', inputId: 'fileIndex', key: 'indexes', parser: 'parseIndexes' },
+            { zoneId: 'zoneSlowQuery', inputId: 'fileSlowQuery', key: 'slowQueries', parser: 'parseSlowQueries' }
+        ];
+
+        for (const z of zones) {
+            const zone = document.getElementById(z.zoneId);
+            const input = document.getElementById(z.inputId);
+            const statusEl = zone.querySelector('.zone-status');
+
+            zone.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'INPUT') input.click();
+            });
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                if (e.dataTransfer.files[0]) this._handleCsvFile(e.dataTransfer.files[0], z, zone, statusEl);
+            });
+            input.addEventListener('change', (e) => {
+                if (e.target.files[0]) this._handleCsvFile(e.target.files[0], z, zone, statusEl);
+            });
+        }
+    },
+
+    _handleCsvFile(file, zoneConfig, zoneEl, statusEl) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target.result;
+                let result;
+                if (zoneConfig.key === 'tables') {
+                    result = ConfigBuilder.parseTables(text);
+                    this.csvState.tables = result;
+                    statusEl.textContent = result.size + ' large tables found';
+                } else if (zoneConfig.key === 'indexes') {
+                    result = ConfigBuilder.parseIndexes(text);
+                    this.csvState.indexes = result;
+                    let idxCount = 0;
+                    for (const idxList of result.values()) idxCount += idxList.length;
+                    statusEl.textContent = result.size + ' tables, ' + idxCount + ' indexes';
+                } else if (zoneConfig.key === 'slowQueries') {
+                    result = ConfigBuilder.parseSlowQueries(text);
+                    this.csvState.slowQueries = result;
+                    statusEl.textContent = result.length + ' slow queries';
+                }
+                statusEl.className = 'zone-status ok';
+                zoneEl.classList.remove('error');
+                zoneEl.classList.add('success');
+
+                // Reset downstream state on re-upload
+                this.csvState.advisoryReport = null;
+                document.getElementById('advisoryResults').className = 'section-hidden';
+                document.getElementById('advisoryResults').innerHTML = '';
+
+                this._updateSyncSummary();
+                this._updateAnalyzeButton();
+            } catch (err) {
+                statusEl.textContent = err.message;
+                statusEl.className = 'zone-status err';
+                zoneEl.classList.remove('success');
+                zoneEl.classList.add('error');
+                // Clear this state
+                this.csvState[zoneConfig.key] = null;
+                this._updateSyncSummary();
+                this._updateAnalyzeButton();
+            }
+        };
+        reader.readAsText(file);
+    },
+
+    _updateSyncSummary() {
+        const container = document.getElementById('syncSummary');
+        if (!this.csvState.tables && !this.csvState.indexes) {
+            container.className = 'section-hidden';
+            return;
+        }
+
+        container.className = 'section-visible';
+        let html = '<div class="summary-grid">';
+
+        if (this.csvState.tables) {
+            html += '<div class="summary-card"><div class="label">Large Tables</div>'
+                + '<div class="value" style="color:#f8fafc;">' + this.csvState.tables.size + '</div>'
+                + '<div class="detail">&ge; 1M rows</div></div>';
+        }
+        if (this.csvState.indexes) {
+            let idxCount = 0;
+            for (const v of this.csvState.indexes.values()) idxCount += v.length;
+            html += '<div class="summary-card"><div class="label">Indexes</div>'
+                + '<div class="value" style="color:#f8fafc;">' + idxCount + '</div>'
+                + '<div class="detail">across ' + this.csvState.indexes.size + ' tables</div></div>';
+        }
+        if (this.csvState.slowQueries) {
+            html += '<div class="summary-card"><div class="label">Slow Queries</div>'
+                + '<div class="value" style="color:#f8fafc;">' + this.csvState.slowQueries.length + '</div>'
+                + '<div class="detail">from performance_schema</div></div>';
+        }
+        html += '</div>';
+
+        // Detail panels
+        if (this.csvState.tables) {
+            html += '<div class="detail-panel"><div class="panel-header" onclick="UI._togglePanel(this)">'
+                + '<h3>Tables (' + this.csvState.tables.size + ')</h3><span class="toggle">&#9654;</span></div>'
+                + '<div class="panel-body">';
+            for (const [name, info] of this.csvState.tables) {
+                html += '<div class="detail-row"><span class="name">' + escapeHtml(name) + '</span>'
+                    + '<span class="info"><span class="badge badge-' + info.riskLevel.toLowerCase() + '">'
+                    + info.riskLevel.replace('_', ' ') + '</span> '
+                    + formatNum(info.rows) + ' rows</span></div>';
+            }
+            html += '</div></div>';
+        }
+
+        if (this.csvState.indexes) {
+            let idxCount = 0;
+            for (const v of this.csvState.indexes.values()) idxCount += v.length;
+            html += '<div class="detail-panel"><div class="panel-header" onclick="UI._togglePanel(this)">'
+                + '<h3>Indexes (' + idxCount + ')</h3><span class="toggle">&#9654;</span></div>'
+                + '<div class="panel-body">';
+            for (const [tableName, indexes] of this.csvState.indexes) {
+                for (const idx of indexes) {
+                    html += '<div class="detail-row"><span class="name">' + escapeHtml(tableName)
+                        + '.' + escapeHtml(idx.indexName) + '</span>'
+                        + '<span class="info">' + (idx.isUnique ? 'UNIQUE ' : '')
+                        + '(' + idx.columns.map(escapeHtml).join(', ') + ')</span></div>';
+                }
+            }
+            html += '</div></div>';
+        }
+
+        container.innerHTML = html;
+    },
+
+    _togglePanel(headerEl) {
+        const body = headerEl.nextElementSibling;
+        const toggle = headerEl.querySelector('.toggle');
+        body.classList.toggle('open');
+        toggle.classList.toggle('open');
+    },
+
+    _updateAnalyzeButton() {
+        const section = document.getElementById('analyzeSection');
+        const btn = document.getElementById('analyzeBtn');
+        if (this.csvState.tables && this.csvState.indexes && this.csvState.slowQueries) {
+            section.className = 'section-visible';
+            btn.disabled = false;
+        } else {
+            section.className = this.csvState.tables || this.csvState.indexes ? 'section-visible' : 'section-hidden';
+            btn.disabled = true;
+        }
+    },
+
+    _setupAnalyzeButton() {
+        document.getElementById('analyzeBtn').addEventListener('click', () => {
+            this._runAnalysis();
+        });
+    },
+
+    _runAnalysis() {
+        const btn = document.getElementById('analyzeBtn');
+        btn.classList.add('loading');
+        btn.disabled = true;
+
+        // Use setTimeout to allow UI to update before heavy computation
+        setTimeout(() => {
+            try {
+                const report = SlowQueryAdvisor.advise(
+                    this.csvState.slowQueries,
+                    this.csvState.indexes,
+                    this.csvState.tables
+                );
+                this.csvState.advisoryReport = report;
+                this._renderAdvisoryResults(report);
+            } catch (err) {
+                const container = document.getElementById('advisoryResults');
+                container.className = 'section-visible';
+                container.innerHTML = '<div class="summary-card" style="border-color:#ef4444;">'
+                    + '<div class="label">Analysis Error</div>'
+                    + '<div class="detail" style="color:#ef4444;">' + escapeHtml(err.message) + '</div></div>';
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }, 50);
+    },
+
+    _renderAdvisoryResults(report) {
+        const container = document.getElementById('advisoryResults');
+        container.className = 'section-visible';
+        this.csvCurrentFilter = 'all';
+
+        let html = '';
+
+        // Summary cards
+        html += '<h2 class="section-title">Advisory Results</h2>';
+        html += '<div class="summary-grid">';
+        html += '<div class="summary-card"><div class="label">Slow Queries Analyzed</div>'
+            + '<div class="value" style="color:#f8fafc;">' + report.totalSlowQueries + '</div></div>';
+        html += '<div class="summary-card"><div class="label">Queries with Issues</div>'
+            + '<div class="value risk-critical">' + report.queriesWithAdvisories + '</div></div>';
+        html += '<div class="summary-card"><div class="label">Total Advisories</div>'
+            + '<div class="value" style="color:#f8fafc;">' + report.advisories.length + '</div></div>';
+
+        const critCount = (report.byRiskLevel['CRITICAL'] || 0) + (report.byRiskLevel['VERY_HIGH'] || 0);
+        html += '<div class="summary-card"><div class="label">Critical + Very High</div>'
+            + '<div class="value risk-critical">' + critCount + '</div></div>';
+        html += '</div>';
+
+        // Charts
+        html += '<div class="charts-grid">';
+        html += '<div class="chart-card"><h3>Advisories by Risk Level</h3><div class="bar-chart" id="csvRiskChart"></div></div>';
+        html += '<div class="chart-card"><h3>Advisories by Problem Type</h3><div class="bar-chart" id="csvProblemChart"></div></div>';
+        html += '</div>';
+
+        // Filters
+        html += '<div class="filters" id="csvFilters">'
+            + '<span class="filter-label">Filter:</span>'
+            + '<button class="filter-btn active" data-filter="all">All (' + report.advisories.length + ')</button>';
+        for (const level of RISK_ORDER) {
+            const count = report.byRiskLevel[level] || 0;
+            if (count > 0) {
+                html += '<button class="filter-btn" data-filter="' + level + '">'
+                    + level.replace('_', ' ') + ' (' + count + ')</button>';
+            }
+        }
+        html += '</div>';
+
+        // Advisory cards container
+        html += '<div id="advisoryCards"></div>';
+
+        container.innerHTML = html;
+
+        // Render charts
+        this._renderCsvRiskChart(report.byRiskLevel);
+        this._renderCsvProblemChart(report.byProblem);
+
+        // Render cards
+        this._renderAdvisoryCards(report.advisories);
+
+        // Setup filter handlers
+        document.getElementById('csvFilters').addEventListener('click', (e) => {
+            if (e.target.classList.contains('filter-btn')) {
+                document.querySelectorAll('#csvFilters .filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.csvCurrentFilter = e.target.dataset.filter;
+                this._renderAdvisoryCards(report.advisories);
+            }
+        });
+    },
+
+    _renderCsvRiskChart(byLevel) {
+        const container = document.getElementById('csvRiskChart');
+        if (!container) return;
+        const maxVal = Math.max(...RISK_ORDER.map(l => byLevel[l] || 0), 1);
+        container.innerHTML = RISK_ORDER.map(level => {
+            const count = byLevel[level] || 0;
+            const pct = (count / maxVal) * 100;
+            return '<div class="bar-row">'
+                + '<div class="bar-label">' + level.replace('_', ' ') + '</div>'
+                + '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(pct, count > 0 ? 8 : 0)
+                + '%; background:' + RISK_COLORS[level] + ';">' + (count > 0 ? count : '') + '</div></div>'
+                + '<div class="bar-count" style="color:' + RISK_COLORS[level] + ';">' + count + '</div></div>';
+        }).join('');
+    },
+
+    _renderCsvProblemChart(byProblem) {
+        const container = document.getElementById('csvProblemChart');
+        if (!container) return;
+        const entries = Object.entries(byProblem).sort((a, b) => b[1] - a[1]);
+        const maxVal = Math.max(...entries.map(e => e[1]), 1);
+        container.innerHTML = entries.map(([problem, count]) => {
+            const pct = (count / maxVal) * 100;
+            const label = PROBLEM_LABELS[problem] || problem;
+            return '<div class="bar-row">'
+                + '<div class="bar-label">' + label + '</div>'
+                + '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(pct, 8)
+                + '%; background:#6366f1;">' + count + '</div></div>'
+                + '<div class="bar-count" style="color:#a5b4fc;">' + count + '</div></div>';
+        }).join('');
+    },
+
+    _renderAdvisoryCards(advisories) {
+        const container = document.getElementById('advisoryCards');
+        if (!container) return;
+
+        const sorted = [...advisories].sort((a, b) => RISK_ORDER.indexOf(a.riskLevel) - RISK_ORDER.indexOf(b.riskLevel));
+        const filtered = this.csvCurrentFilter === 'all' ? sorted : sorted.filter(a => a.riskLevel === this.csvCurrentFilter);
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div style="text-align:center; color:#64748b; padding:32px;">No advisories match this filter.</div>';
+            return;
+        }
+
+        container.innerHTML = filtered.map((a, i) => {
+            const sqlHtml = escapeHtml(a.digestText);
+            let fixHtml = '';
+            if (a.sqlFix) {
+                const fixId = 'fix-' + i;
+                fixHtml = '<div class="sql-fix">'
+                    + '<div class="sql-fix-block" id="' + fixId + '">' + escapeHtml(a.sqlFix) + '</div>'
+                    + '<button class="copy-btn" onclick="UI._copyText(\'' + fixId + '\', this)">Copy</button></div>';
+            }
+
+            let metaHtml = '';
+            if (a.avgMs || a.countStar || a.rowsExamined) {
+                metaHtml = '<div class="meta-row">';
+                if (a.avgMs) metaHtml += '<span>Avg: ' + a.avgMs.toFixed(1) + 'ms</span>';
+                if (a.countStar) metaHtml += '<span>Count: ' + formatNum(a.countStar) + '</span>';
+                if (a.rowsExamined && a.rowsSent) {
+                    const ratio = a.rowsSent > 0 ? Math.floor(a.rowsExamined / a.rowsSent) : 0;
+                    metaHtml += '<span>Scan ratio: ' + formatNum(a.rowsExamined) + '/' + formatNum(a.rowsSent)
+                        + (ratio > 0 ? ' (' + ratio + ':1)' : '') + '</span>';
+                }
+                metaHtml += '</div>';
+            }
+
+            return '<div class="advisory-card">'
+                + '<div class="card-header">'
+                + '<span class="badge badge-' + a.riskLevel.toLowerCase() + '">' + a.riskLevel.replace('_', ' ') + '</span>'
+                + '<span class="problem-type">' + (PROBLEM_LABELS[a.problem] || a.problem) + '</span>'
+                + '</div>'
+                + '<div class="suggestion-text">' + escapeHtml(a.suggestion) + '</div>'
+                + '<div class="sql-block" onclick="this.classList.toggle(\'expanded\')">' + sqlHtml + '</div>'
+                + fixHtml
+                + metaHtml
+                + '</div>';
+        }).join('');
+    },
+
+    _copyText(elId, btn) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        navigator.clipboard.writeText(el.textContent).then(() => {
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+        }).catch(() => {
+            // Fallback
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            document.execCommand('copy');
+            sel.removeAllRanges();
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+        });
+    },
+
+    // --- JSON Report Mode (existing functionality) ---
+    _setupJsonMode() {
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) this._loadJsonFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', e => { if (e.target.files[0]) this._loadJsonFile(e.target.files[0]); });
+
+        // Filter buttons
+        document.getElementById('filters').addEventListener('click', e => {
+            if (e.target.classList.contains('filter-btn')) {
+                document.querySelectorAll('#filters .filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.jsonCurrentFilter = e.target.dataset.filter;
+                this._renderFindings(this.jsonReportData.findings);
+            }
+        });
+    },
+
+    _loadJsonFile(file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const data = JSON.parse(e.target.result);
+                this._renderJsonReport(data);
+            } catch (err) {
+                alert('Invalid JSON file: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    },
+
+    _renderJsonReport(data) {
+        this.jsonReportData = data;
+        document.getElementById('dropZone').classList.remove('visible');
+
+        // Scan info
+        const scanDate = new Date(data.scanTimestamp).toLocaleString();
+        const srcDir = data.sourceDir.split('/').slice(-4).join('/');
+        document.getElementById('scanInfo').innerHTML =
+            '<span>Scanned: <strong>' + srcDir + '</strong></span>'
+            + '<span>Date: <strong>' + scanDate + '</strong></span>'
+            + '<span>Queries: <strong>' + data.totalQueriesExtracted + '</strong> extracted, <strong>' + data.totalQueriesParsed + '</strong> parsed</span>';
+
+        // Summary cards
+        const passed = data.totalQueriesExtracted - data.queriesWithFindings;
+        const passRate = data.totalQueriesExtracted > 0 ? Math.round((passed / data.totalQueriesExtracted) * 100) : 100;
+        const criticalCount = (data.findingsByRiskLevel['CRITICAL'] || 0);
+        const vhCount = (data.findingsByRiskLevel['VERY_HIGH'] || 0);
+        const highCount = (data.findingsByRiskLevel['HIGH'] || 0);
+
+        document.getElementById('summaryCards').innerHTML =
+            '<div class="summary-card"><div class="label">Total Findings</div>'
+            + '<div class="value ' + (data.totalFindings > 0 ? 'risk-critical' : 'risk-low') + '">' + data.totalFindings + '</div>'
+            + '<div class="detail">' + data.queriesWithFindings + ' queries affected</div></div>'
+            + '<div class="summary-card"><div class="label">Critical + Very High</div>'
+            + '<div class="value risk-critical">' + (criticalCount + vhCount) + '</div>'
+            + '<div class="detail">' + criticalCount + ' critical, ' + vhCount + ' very high</div></div>'
+            + '<div class="summary-card"><div class="label">Queries Scanned</div>'
+            + '<div class="value" style="color:#f8fafc;">' + data.totalQueriesExtracted + '</div>'
+            + '<div class="detail">' + passRate + '% clean</div></div>'
+            + '<div class="summary-card"><div class="label">Status</div>'
+            + '<div class="value ' + (highCount + vhCount + criticalCount > 0 ? 'risk-critical' : 'risk-low') + '">'
+            + (highCount + vhCount + criticalCount > 0 ? 'FAIL' : 'PASS') + '</div>'
+            + '<div class="detail">' + (highCount + vhCount + criticalCount > 0 ? 'HIGH+ findings detected' : 'No high-risk queries') + '</div></div>';
+
+        // Charts
+        document.getElementById('chartsSection').style.display = 'grid';
+        this._renderRiskLevelChart(data.findingsByRiskLevel);
+        this._renderRuleChart(data.findingsByRule);
+
+        // Filters
+        document.getElementById('filters').style.display = 'flex';
+        document.getElementById('findingsTitle').style.display = 'block';
+        document.getElementById('findingsTable').style.display = 'table';
+
+        this._renderFindings(data.findings);
+    },
+
+    _renderRiskLevelChart(byLevel) {
+        const container = document.getElementById('riskLevelChart');
+        const maxVal = Math.max(...Object.values(byLevel), 1);
+        container.innerHTML = RISK_ORDER.map(level => {
+            const count = byLevel[level] || 0;
+            const pct = (count / maxVal) * 100;
+            return '<div class="bar-row"><div class="bar-label">' + level.replace('_', ' ') + '</div>'
+                + '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(pct, count > 0 ? 8 : 0)
+                + '%; background:' + RISK_COLORS[level] + ';">' + (count > 0 ? count : '') + '</div></div>'
+                + '<div class="bar-count" style="color:' + RISK_COLORS[level] + ';">' + count + '</div></div>';
+        }).join('');
+    },
+
+    _renderRuleChart(byRule) {
+        const container = document.getElementById('ruleChart');
+        const entries = Object.entries(byRule).sort((a, b) => b[1] - a[1]);
+        const maxVal = Math.max(...entries.map(e => e[1]), 1);
+        container.innerHTML = entries.map(([rule, count]) => {
+            const pct = (count / maxVal) * 100;
+            const label = RULE_LABELS[rule] || rule;
+            return '<div class="bar-row"><div class="bar-label">' + label + '</div>'
+                + '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(pct, 8)
+                + '%; background:#6366f1;">' + count + '</div></div>'
+                + '<div class="bar-count" style="color:#a5b4fc;">' + count + '</div></div>';
+        }).join('');
+    },
+
+    _renderFindings(findings) {
+        const sorted = [...findings].sort((a, b) => RISK_ORDER.indexOf(a.riskLevel) - RISK_ORDER.indexOf(b.riskLevel));
+        const filtered = this.jsonCurrentFilter === 'all' ? sorted : sorted.filter(f => f.riskLevel === this.jsonCurrentFilter);
+
+        const tbody = document.getElementById('findingsBody');
+        tbody.innerHTML = filtered.map((f, i) => {
+            const shortFile = f.sourceFile.split('/').slice(-2).join('/');
+            const sqlClean = escapeHtml(f.sql);
+            return '<tr>'
+                + '<td style="color:#475569;">' + (i + 1) + '</td>'
+                + '<td><span class="badge badge-' + f.riskLevel.toLowerCase() + '">' + f.riskLevel.replace('_', ' ') + '</span></td>'
+                + '<td style="font-size:12px; color:#e2e8f0;">' + (RULE_LABELS[f.ruleId] || f.ruleId) + '</td>'
+                + '<td><div class="file-link">' + shortFile + ':' + f.line + '</div>'
+                + '<div class="method-name">' + f.sourceClass + '.' + f.method + '()</div></td>'
+                + '<td><span class="source-badge">' + f.querySource.replace('_', ' ') + '</span></td>'
+                + '<td><div class="sql-preview" onclick="this.classList.toggle(\'expanded\')">' + sqlClean + '</div>'
+                + '<div class="reason-text" style="margin-top:6px;">' + escapeHtml(f.reason) + '</div>'
+                + '<div class="fix-text" style="margin-top:4px;">' + escapeHtml(f.recommendation) + '</div></td></tr>';
+        }).join('');
+    },
+
+    _autoLoadEmbeddedReport() {
+        if (typeof EMBEDDED_REPORT !== 'undefined' && EMBEDDED_REPORT && EMBEDDED_REPORT.findings) {
+            // Switch to JSON mode and load
+            document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector('.mode-tab[data-mode="json"]').classList.add('active');
+            this.currentMode = 'json';
+            document.getElementById('csvMode').className = 'section-hidden';
+            document.getElementById('jsonMode').className = 'section-visible';
+            this._renderJsonReport(EMBEDDED_REPORT);
+        }
+    }
+};
+
+// Embedded report data (generated by db-risk-guard CLI)
+const EMBEDDED_REPORT = null;
+
+// Initialize
+UI.init();
+</script>
+</body>
+</html>

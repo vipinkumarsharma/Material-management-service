@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    SpotBugs Exclusion Filter
+    Excludes false positives common in Spring Boot + Lombok projects.
+    Keep this minimal - every exclusion weakens the safety net.
+-->
+<FindBugsFilter>
+    <!-- Exclude Lombok-generated code (equals, hashCode, toString, builders) -->
+    <Match>
+        <Source name="~.*\.java"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+        <Class name="~.*\.(dto|entity|model)\..*"/>
+    </Match>
+    <Match>
+        <Source name="~.*\.java"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+        <Class name="~.*\.(dto|entity|model)\..*"/>
+    </Match>
+
+    <!-- Exclude Spring configuration classes -->
+    <Match>
+        <Class name="~.*Config"/>
+        <Bug pattern="UWF_UNWRITTEN_FIELD"/>
+    </Match>
+
+    <!-- Exclude Spring Boot Application classes -->
+    <Match>
+        <Class name="~.*Application"/>
+        <Bug pattern="NP_UNWRITTEN_PUBLIC_OR_PROTECTED_FIELD"/>
+    </Match>
+
+    <!-- Exclude test classes from all checks -->
+    <Match>
+        <Class name="~.*Test"/>
+    </Match>
+    <Match>
+        <Class name="~.*Tests"/>
+    </Match>
+    <Match>
+        <Class name="~.*IT"/>
+    </Match>
+
+    <!-- Exclude generated QueryDSL classes -->
+    <Match>
+        <Class name="~.*\.Q[A-Z].*"/>
+    </Match>
+
+    <!-- Exclude MapStruct generated mappers -->
+    <Match>
+        <Class name="~.*MapperImpl"/>
+    </Match>
+
+    <!-- CSRF protection is correctly disabled in stateless JWT-based REST APIs -->
+    <Match>
+        <Class name="~.*SecurityConfig"/>
+        <Bug pattern="SPRING_CSRF_PROTECTION_DISABLED"/>
+    </Match>
+</FindBugsFilter>

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DB Risk Guard - Export Helper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+
+        .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 1px solid #334155; padding: 24px 32px; }
+        .header h1 { font-size: 24px; font-weight: 700; color: #f8fafc; }
+        .header .subtitle { color: #94a3b8; font-size: 14px; margin-top: 4px; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px 32px; }
+
+        /* Intro Section */
+        .intro { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 24px; margin-bottom: 32px; }
+        .intro h2 { font-size: 16px; font-weight: 600; color: #f1f5f9; margin-bottom: 12px; }
+        .intro p { font-size: 14px; color: #94a3b8; margin-bottom: 8px; }
+        .intro .highlight { color: #60a5fa; font-weight: 500; }
+
+        /* Workflow Steps */
+        .workflow { display: flex; gap: 12px; margin-bottom: 32px; overflow-x: auto; padding-bottom: 4px; }
+        .workflow-step { flex: 1; min-width: 200px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; text-align: center; position: relative; }
+        .workflow-step.active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
+        .workflow-step .step-num { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: #334155; color: #94a3b8; font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+        .workflow-step.active .step-num { background: #3b82f6; color: #fff; }
+        .workflow-step h3 { font-size: 13px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px; }
+        .workflow-step p { font-size: 12px; color: #64748b; }
+        .workflow-arrow { display: flex; align-items: center; color: #475569; font-size: 20px; flex-shrink: 0; }
+
+        /* Query Cards */
+        .query-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-bottom: 24px; overflow: hidden; }
+        .query-card-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #334155; cursor: pointer; transition: background 0.15s; }
+        .query-card-header:hover { background: rgba(255,255,255,0.02); }
+        .query-card-header h3 { font-size: 16px; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 12px; }
+        .query-card-header .card-badge { display: inline-block; padding: 3px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge-required { background: #172554; color: #93c5fd; border: 1px solid #1e3a5f; }
+        .badge-optional { background: #052e16; color: #86efac; border: 1px solid #14532d; }
+        .badge-sync { background: #422006; color: #fde047; border: 1px solid #713f12; }
+        .toggle-icon { color: #64748b; font-size: 20px; transition: transform 0.2s; font-weight: 300; }
+        .query-card.open .toggle-icon { transform: rotate(180deg); }
+        .query-card-body { padding: 0 24px 24px; display: none; }
+        .query-card.open .query-card-body { display: block; }
+
+        /* Inside cards */
+        .card-desc { font-size: 14px; color: #94a3b8; margin: 16px 0; }
+        .card-desc strong { color: #e2e8f0; }
+
+        .sql-block { position: relative; background: #0f172a; border: 1px solid #334155; border-radius: 8px; margin: 16px 0; }
+        .sql-block-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #1e293b; }
+        .sql-block-header span { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .copy-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; }
+        .copy-btn:hover { border-color: #475569; color: #e2e8f0; background: #334155; }
+        .copy-btn.copied { border-color: #22c55e; color: #22c55e; background: rgba(34, 197, 94, 0.1); }
+        .sql-code { padding: 16px; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 13px; color: #e2e8f0; white-space: pre-wrap; overflow-x: auto; line-height: 1.7; }
+        .sql-code .kw { color: #c084fc; }
+        .sql-code .fn { color: #f472b6; }
+        .sql-code .str { color: #fbbf24; }
+        .sql-code .num { color: #22d3ee; }
+        .sql-code .comment { color: #475569; font-style: italic; }
+        .sql-code .tbl { color: #34d399; }
+
+        /* Save-as info */
+        .save-as { display: flex; align-items: center; gap: 12px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 14px 18px; margin: 16px 0; }
+        .save-as .file-icon { font-size: 24px; flex-shrink: 0; }
+        .save-as .save-text { font-size: 13px; color: #94a3b8; }
+        .save-as .filename { color: #60a5fa; font-weight: 600; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; }
+        .save-as .save-path { color: #64748b; font-size: 12px; }
+
+        /* Tips */
+        .tip-box { background: rgba(250, 204, 21, 0.06); border: 1px solid rgba(250, 204, 21, 0.15); border-radius: 8px; padding: 14px 18px; margin: 16px 0; }
+        .tip-box .tip-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #fbbf24; font-weight: 600; margin-bottom: 6px; }
+        .tip-box p { font-size: 13px; color: #94a3b8; }
+        .tip-box code { background: #1e293b; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #e2e8f0; font-family: 'SF Mono', 'Fira Code', monospace; }
+
+        /* Column table */
+        .col-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        .col-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 10px 14px; border-bottom: 1px solid #334155; background: rgba(15, 23, 42, 0.5); }
+        .col-table td { padding: 10px 14px; border-bottom: 1px solid #1e293b; font-size: 13px; }
+        .col-table tr:hover { background: rgba(255,255,255,0.02); }
+        .col-table .col-name { color: #60a5fa; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+        .col-table .col-desc { color: #94a3b8; }
+
+        /* After export section */
+        .next-steps { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 24px; margin-top: 32px; }
+        .next-steps h2 { font-size: 16px; font-weight: 600; color: #f1f5f9; margin-bottom: 16px; }
+        .step-list { list-style: none; }
+        .step-list li { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); }
+        .step-list li:last-child { border-bottom: none; }
+        .step-list .step-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; background: #334155; }
+        .step-list .step-content { flex: 1; }
+        .step-list .step-title { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+        .step-list .step-desc { font-size: 13px; color: #64748b; margin-top: 2px; }
+        .step-list code { background: #0f172a; padding: 2px 8px; border-radius: 4px; font-size: 12px; color: #34d399; font-family: 'SF Mono', 'Fira Code', monospace; }
+
+        /* Tool selector */
+        .tool-tabs { display: flex; gap: 8px; margin-bottom: 16px; margin-top: 16px; }
+        .tool-tab { padding: 6px 16px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #64748b; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; }
+        .tool-tab:hover { color: #94a3b8; border-color: #475569; }
+        .tool-tab.active { background: #334155; color: #f8fafc; border-color: #475569; }
+        .tool-instructions { display: none; }
+        .tool-instructions.active { display: block; }
+
+        /* Footer */
+        .footer { text-align: center; padding: 24px; color: #475569; font-size: 12px; border-top: 1px solid #1e293b; margin-top: 48px; }
+
+        @media (max-width: 768px) {
+            .workflow { flex-direction: column; }
+            .workflow-arrow { justify-content: center; transform: rotate(90deg); }
+            .container { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>DB Risk Guard &mdash; Export Helper</h1>
+    <div class="subtitle">Run these queries on your MySQL database, export as CSV, and feed into db-risk-guard for automated analysis.</div>
+</div>
+
+<div class="container">
+
+    <!-- Intro -->
+    <div class="intro">
+        <h2>How it works</h2>
+        <p>db-risk-guard needs data about your database to analyze your code. Instead of configuring everything manually, you can <span class="highlight">export 3 CSV files</span> from MySQL and let the tool auto-generate all config files.</p>
+        <p>This page has the exact SQL queries you need, with copy-to-clipboard and export instructions for popular MySQL clients.</p>
+    </div>
+
+    <!-- Workflow -->
+    <div class="workflow">
+        <div class="workflow-step active">
+            <div class="step-num">1</div>
+            <h3>Run Queries</h3>
+            <p>Copy SQL from this page and run on your DB</p>
+        </div>
+        <div class="workflow-arrow">&#x2192;</div>
+        <div class="workflow-step">
+            <div class="step-num">2</div>
+            <h3>Export CSV</h3>
+            <p>Save results as CSV files</p>
+        </div>
+        <div class="workflow-arrow">&#x2192;</div>
+        <div class="workflow-step">
+            <div class="step-num">3</div>
+            <h3>Drop in data/</h3>
+            <p>Put CSVs in db-risk-guard/data/</p>
+        </div>
+        <div class="workflow-arrow">&#x2192;</div>
+        <div class="workflow-step">
+            <div class="step-num">4</div>
+            <h3>Run --sync</h3>
+            <p>Auto-generates config files</p>
+        </div>
+    </div>
+
+    <!-- Query 1: Tables -->
+    <div class="query-card open" id="card-tables">
+        <div class="query-card-header" onclick="toggleCard('card-tables')">
+            <h3>
+                <span class="card-badge badge-required">Required</span>
+                Query 1: Large Tables
+            </h3>
+            <span class="toggle-icon">&#x25BC;</span>
+        </div>
+        <div class="query-card-body">
+            <p class="card-desc">Lists all tables with more than <strong>1 million rows</strong> from <code>information_schema.TABLES</code>. Used by <code>--sync</code> to generate <strong>large-tables.yml</strong> with auto-assigned risk levels.</p>
+
+            <div class="sql-block">
+                <div class="sql-block-header">
+                    <span>SQL</span>
+                    <button class="copy-btn" onclick="copySQL(this, 'sql-tables')">Copy</button>
+                </div>
+                <div class="sql-code" id="sql-tables"><span class="kw">SELECT</span> <span class="tbl">TABLE_NAME</span>, <span class="tbl">TABLE_ROWS</span>
+<span class="kw">FROM</span> <span class="tbl">information_schema</span>.<span class="tbl">TABLES</span>
+<span class="kw">WHERE</span> <span class="tbl">TABLE_SCHEMA</span> = <span class="fn">DATABASE</span>()
+  <span class="kw">AND</span> <span class="tbl">TABLE_ROWS</span> &gt; <span class="num">1000000</span>
+<span class="kw">ORDER BY</span> <span class="tbl">TABLE_ROWS</span> <span class="kw">DESC</span>;</div>
+            </div>
+
+            <div class="save-as">
+                <div class="file-icon">&#128196;</div>
+                <div>
+                    <div class="save-text">Save result as:</div>
+                    <div class="filename">tables.csv</div>
+                    <div class="save-path">Drop into: db-risk-guard/data/tables.csv</div>
+                </div>
+            </div>
+
+            <table class="col-table">
+                <thead><tr><th>Column</th><th>Description</th><th>Used for</th></tr></thead>
+                <tbody>
+                    <tr><td class="col-name">TABLE_NAME</td><td class="col-desc">Name of the database table</td><td class="col-desc">Added to large-tables.yml</td></tr>
+                    <tr><td class="col-name">TABLE_ROWS</td><td class="col-desc">Approximate row count (from InnoDB statistics)</td><td class="col-desc">Risk level auto-assignment</td></tr>
+                </tbody>
+            </table>
+
+            <div class="tip-box">
+                <div class="tip-label">Tip</div>
+                <p><code>TABLE_ROWS</code> from <code>information_schema</code> is an <strong>estimate</strong> for InnoDB tables. For exact counts, use <code>SELECT COUNT(*) FROM table_name</code>, but that's slow on large tables. The estimate is good enough for risk classification.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Query 2: Indexes -->
+    <div class="query-card open" id="card-indexes">
+        <div class="query-card-header" onclick="toggleCard('card-indexes')">
+            <h3>
+                <span class="card-badge badge-required">Required</span>
+                Query 2: Indexes
+            </h3>
+            <span class="toggle-icon">&#x25BC;</span>
+        </div>
+        <div class="query-card-body">
+            <p class="card-desc">Lists all indexes across all tables from <code>information_schema.STATISTICS</code>. Used by <code>--sync</code> to generate <strong>index-metadata.json</strong>. The tool uses this to check if your queries have proper index coverage.</p>
+
+            <div class="sql-block">
+                <div class="sql-block-header">
+                    <span>SQL</span>
+                    <button class="copy-btn" onclick="copySQL(this, 'sql-indexes')">Copy</button>
+                </div>
+                <div class="sql-code" id="sql-indexes"><span class="kw">SELECT</span> <span class="tbl">TABLE_NAME</span>, <span class="tbl">INDEX_NAME</span>, <span class="tbl">NON_UNIQUE</span>, <span class="tbl">SEQ_IN_INDEX</span>, <span class="tbl">COLUMN_NAME</span>
+<span class="kw">FROM</span> <span class="tbl">information_schema</span>.<span class="tbl">STATISTICS</span>
+<span class="kw">WHERE</span> <span class="tbl">TABLE_SCHEMA</span> = <span class="fn">DATABASE</span>()
+<span class="kw">ORDER BY</span> <span class="tbl">TABLE_NAME</span>, <span class="tbl">INDEX_NAME</span>, <span class="tbl">SEQ_IN_INDEX</span>;</div>
+            </div>
+
+            <div class="save-as">
+                <div class="file-icon">&#128196;</div>
+                <div>
+                    <div class="save-text">Save result as:</div>
+                    <div class="filename">indexes.csv</div>
+                    <div class="save-path">Drop into: db-risk-guard/data/indexes.csv</div>
+                </div>
+            </div>
+
+            <table class="col-table">
+                <thead><tr><th>Column</th><th>Description</th><th>Used for</th></tr></thead>
+                <tbody>
+                    <tr><td class="col-name">TABLE_NAME</td><td class="col-desc">Table the index belongs to</td><td class="col-desc">Groups indexes by table</td></tr>
+                    <tr><td class="col-name">INDEX_NAME</td><td class="col-desc">Name of the index (e.g., PRIMARY, idx_user_email)</td><td class="col-desc">Index identification</td></tr>
+                    <tr><td class="col-name">NON_UNIQUE</td><td class="col-desc">0 = UNIQUE index, 1 = non-unique</td><td class="col-desc">isUnique flag in JSON</td></tr>
+                    <tr><td class="col-name">SEQ_IN_INDEX</td><td class="col-desc">Position of column within the index (1, 2, 3...)</td><td class="col-desc">Column ordering (leftmost-prefix matching)</td></tr>
+                    <tr><td class="col-name">COLUMN_NAME</td><td class="col-desc">Column name in this position of the index</td><td class="col-desc">Index coverage checking</td></tr>
+                </tbody>
+            </table>
+
+            <div class="tip-box">
+                <div class="tip-label">Why column order matters</div>
+                <p>MySQL uses <strong>leftmost-prefix matching</strong>. For a composite index on <code>(a, b, c)</code>, a query filtering on <code>WHERE a = ? AND b = ?</code> uses the index, but <code>WHERE b = ? AND c = ?</code> does <strong>not</strong>. The <code>SEQ_IN_INDEX</code> column preserves this order.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Query 3: Slow Queries -->
+    <div class="query-card" id="card-slow">
+        <div class="query-card-header" onclick="toggleCard('card-slow')">
+            <h3>
+                <span class="card-badge badge-optional">Optional</span>
+                Query 3: Slow Queries
+            </h3>
+            <span class="toggle-icon">&#x25BC;</span>
+        </div>
+        <div class="query-card-body">
+            <p class="card-desc">Lists queries slower than <strong>700ms</strong> from <code>performance_schema.events_statements_summary_by_digest</code>. Used by <code>--advise</code> to cross-reference slow queries with your index data and generate <strong>specific CREATE INDEX recommendations</strong>.</p>
+
+            <div class="sql-block">
+                <div class="sql-block-header">
+                    <span>SQL</span>
+                    <button class="copy-btn" onclick="copySQL(this, 'sql-slow')">Copy</button>
+                </div>
+                <div class="sql-code" id="sql-slow"><span class="kw">SELECT</span> <span class="tbl">DIGEST_TEXT</span>,
+       <span class="tbl">COUNT_STAR</span>,
+       <span class="tbl">AVG_TIMER_WAIT</span> / <span class="num">1000000000</span> <span class="kw">AS</span> <span class="tbl">AVG_MS</span>,
+       <span class="tbl">SUM_ROWS_EXAMINED</span>,
+       <span class="tbl">SUM_ROWS_SENT</span>,
+       <span class="tbl">FIRST_SEEN</span>,
+       <span class="tbl">LAST_SEEN</span>
+<span class="kw">FROM</span> <span class="tbl">performance_schema</span>.<span class="tbl">events_statements_summary_by_digest</span>
+<span class="kw">WHERE</span> <span class="tbl">SCHEMA_NAME</span> = <span class="fn">DATABASE</span>()
+  <span class="kw">AND</span> <span class="tbl">AVG_TIMER_WAIT</span> &gt; <span class="num">700000000</span>
+<span class="kw">ORDER BY</span> <span class="tbl">AVG_TIMER_WAIT</span> <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> <span class="num">100</span>;</div>
+            </div>
+
+            <div class="save-as">
+                <div class="file-icon">&#128196;</div>
+                <div>
+                    <div class="save-text">Save result as:</div>
+                    <div class="filename">slow_queries.csv</div>
+                    <div class="save-path">Drop into: db-risk-guard/data/slow_queries.csv</div>
+                </div>
+            </div>
+
+            <table class="col-table">
+                <thead><tr><th>Column</th><th>Description</th><th>Used for</th></tr></thead>
+                <tbody>
+                    <tr><td class="col-name">DIGEST_TEXT</td><td class="col-desc">Normalized SQL query text (parameters replaced with ?)</td><td class="col-desc">Parsed by SQL analyzer</td></tr>
+                    <tr><td class="col-name">COUNT_STAR</td><td class="col-desc">How many times this query was executed</td><td class="col-desc">Frequency context in report</td></tr>
+                    <tr><td class="col-name">AVG_MS</td><td class="col-desc">Average execution time in milliseconds</td><td class="col-desc">Severity ranking</td></tr>
+                    <tr><td class="col-name">SUM_ROWS_EXAMINED</td><td class="col-desc">Total rows scanned across all executions</td><td class="col-desc">Detects high scan:return ratio</td></tr>
+                    <tr><td class="col-name">SUM_ROWS_SENT</td><td class="col-desc">Total rows returned to client</td><td class="col-desc">Compared with rows examined</td></tr>
+                    <tr><td class="col-name">FIRST_SEEN</td><td class="col-desc">When this query was first observed</td><td class="col-desc">Timeline context</td></tr>
+                    <tr><td class="col-name">LAST_SEEN</td><td class="col-desc">When this query was last executed</td><td class="col-desc">Staleness check</td></tr>
+                </tbody>
+            </table>
+
+            <div class="tip-box">
+                <div class="tip-label">Prerequisites</div>
+                <p><code>performance_schema</code> must be enabled on your MySQL server. Check with: <code>SHOW VARIABLES LIKE 'performance_schema';</code><br>If it shows <code>OFF</code>, ask your DBA to enable it (requires MySQL restart).</p>
+            </div>
+
+            <div class="tip-box">
+                <div class="tip-label">Adjusting the threshold</div>
+                <p>The <code>700000000</code> value = 700ms in picoseconds (MySQL's internal unit). Adjust this based on your SLA:<br>
+                &bull; 500ms: use <code>500000000</code><br>
+                &bull; 1 second: use <code>1000000000</code><br>
+                &bull; 2 seconds: use <code>2000000000</code></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Instructions per tool -->
+    <div class="query-card" id="card-export">
+        <div class="query-card-header" onclick="toggleCard('card-export')">
+            <h3>
+                <span class="card-badge badge-sync">Guide</span>
+                How to Export CSV from Your MySQL Client
+            </h3>
+            <span class="toggle-icon">&#x25BC;</span>
+        </div>
+        <div class="query-card-body">
+            <div class="tool-tabs">
+                <button class="tool-tab active" onclick="switchTool('dbeaver', this)">DBeaver</button>
+                <button class="tool-tab" onclick="switchTool('workbench', this)">MySQL Workbench</button>
+                <button class="tool-tab" onclick="switchTool('datagrip', this)">DataGrip</button>
+                <button class="tool-tab" onclick="switchTool('cli', this)">MySQL CLI</button>
+            </div>
+
+            <div class="tool-instructions active" id="tool-dbeaver">
+                <table class="col-table">
+                    <tbody>
+                        <tr><td class="col-name">1</td><td class="col-desc">Paste the SQL query in the SQL Editor and run it (Ctrl+Enter)</td></tr>
+                        <tr><td class="col-name">2</td><td class="col-desc">Right-click on the result grid &rarr; <strong>Export Data</strong></td></tr>
+                        <tr><td class="col-name">3</td><td class="col-desc">Select format: <strong>CSV</strong></td></tr>
+                        <tr><td class="col-name">4</td><td class="col-desc">Set the output file path to <code>db-risk-guard/data/tables.csv</code> (or indexes.csv, etc.)</td></tr>
+                        <tr><td class="col-name">5</td><td class="col-desc">Click <strong>Proceed</strong>. Done!</td></tr>
+                    </tbody>
+                </table>
+                <div class="tip-box">
+                    <div class="tip-label">DBeaver Tip</div>
+                    <p>Make sure <strong>"Include column names"</strong> (header row) is checked in the export dialog. db-risk-guard needs the header row to identify columns.</p>
+                </div>
+            </div>
+
+            <div class="tool-instructions" id="tool-workbench">
+                <table class="col-table">
+                    <tbody>
+                        <tr><td class="col-name">1</td><td class="col-desc">Paste the SQL query and click the lightning bolt icon to execute</td></tr>
+                        <tr><td class="col-name">2</td><td class="col-desc">In the result grid, click the <strong>Export</strong> button (disk icon with arrow)</td></tr>
+                        <tr><td class="col-name">3</td><td class="col-desc">Select <strong>CSV</strong> format</td></tr>
+                        <tr><td class="col-name">4</td><td class="col-desc">Choose destination file: <code>db-risk-guard/data/tables.csv</code></td></tr>
+                        <tr><td class="col-name">5</td><td class="col-desc">Click <strong>Next</strong> then <strong>Finish</strong></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="tool-instructions" id="tool-datagrip">
+                <table class="col-table">
+                    <tbody>
+                        <tr><td class="col-name">1</td><td class="col-desc">Run the SQL query in the console (Ctrl+Enter)</td></tr>
+                        <tr><td class="col-name">2</td><td class="col-desc">Right-click on the result tab &rarr; <strong>Export Data to File</strong></td></tr>
+                        <tr><td class="col-name">3</td><td class="col-desc">Select extractor: <strong>CSV</strong></td></tr>
+                        <tr><td class="col-name">4</td><td class="col-desc">Save to <code>db-risk-guard/data/tables.csv</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="tool-instructions" id="tool-cli">
+                <p class="card-desc">Use the <code>mysql</code> command-line client with tab-separated output:</p>
+                <div class="sql-block">
+                    <div class="sql-block-header">
+                        <span>Bash</span>
+                        <button class="copy-btn" onclick="copySQL(this, 'sql-cli-export')">Copy</button>
+                    </div>
+                    <div class="sql-code" id="sql-cli-export"><span class="comment"># Tables export</span>
+mysql -u root -p -D your_database -e <span class="str">"
+SELECT TABLE_NAME, TABLE_ROWS
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_ROWS > 1000000
+ORDER BY TABLE_ROWS DESC;"</span> | tr <span class="str">'\t'</span> <span class="str">','</span> &gt; db-risk-guard/data/tables.csv
+
+<span class="comment"># Indexes export</span>
+mysql -u root -p -D your_database -e <span class="str">"
+SELECT TABLE_NAME, INDEX_NAME, NON_UNIQUE, SEQ_IN_INDEX, COLUMN_NAME
+FROM information_schema.STATISTICS
+WHERE TABLE_SCHEMA = DATABASE()
+ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX;"</span> | tr <span class="str">'\t'</span> <span class="str">','</span> &gt; db-risk-guard/data/indexes.csv
+
+<span class="comment"># Slow queries export (optional)</span>
+mysql -u root -p -D your_database -e <span class="str">"
+SELECT DIGEST_TEXT, COUNT_STAR, AVG_TIMER_WAIT/1000000000 AS AVG_MS,
+       SUM_ROWS_EXAMINED, SUM_ROWS_SENT, FIRST_SEEN, LAST_SEEN
+FROM performance_schema.events_statements_summary_by_digest
+WHERE SCHEMA_NAME = DATABASE() AND AVG_TIMER_WAIT > 700000000
+ORDER BY AVG_TIMER_WAIT DESC LIMIT 100;"</span> | tr <span class="str">'\t'</span> <span class="str">','</span> &gt; db-risk-guard/data/slow_queries.csv</div>
+                </div>
+                <div class="tip-box">
+                    <div class="tip-label">Note</div>
+                    <p>The <code>tr '\t' ','</code> converts MySQL's tab-separated output to CSV. You can also skip this step &mdash; db-risk-guard auto-detects both tab and comma delimiters.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Next Steps -->
+    <div class="next-steps">
+        <h2>After exporting all CSVs</h2>
+        <ol class="step-list">
+            <li>
+                <div class="step-icon">&#128193;</div>
+                <div class="step-content">
+                    <div class="step-title">Verify your files are in place</div>
+                    <div class="step-desc">Check that <code>db-risk-guard/data/</code> contains: <code>tables.csv</code>, <code>indexes.csv</code>, and optionally <code>slow_queries.csv</code></div>
+                </div>
+            </li>
+            <li>
+                <div class="step-icon">&#9889;</div>
+                <div class="step-content">
+                    <div class="step-title">Run sync to generate configs</div>
+                    <div class="step-desc"><code>java -jar db-risk-guard.jar --sync</code></div>
+                </div>
+            </li>
+            <li>
+                <div class="step-icon">&#128269;</div>
+                <div class="step-content">
+                    <div class="step-title">Run the source code scan</div>
+                    <div class="step-desc"><code>java -jar db-risk-guard.jar -s src/main/java -c db-risk-guard/large-tables.yml --index-json db-risk-guard/index-metadata.json</code></div>
+                </div>
+            </li>
+            <li>
+                <div class="step-icon">&#128161;</div>
+                <div class="step-content">
+                    <div class="step-title">Get slow query recommendations (optional)</div>
+                    <div class="step-desc"><code>java -jar db-risk-guard.jar --advise</code></div>
+                </div>
+            </li>
+        </ol>
+    </div>
+
+</div>
+
+<div class="footer">
+    DB Risk Guard &mdash; Part of Country Delight Backend Engineering Standards
+</div>
+
+<script>
+function toggleCard(id) {
+    document.getElementById(id).classList.toggle('open');
+}
+
+function copySQL(btn, elementId) {
+    const el = document.getElementById(elementId);
+    // Extract plain text (strip HTML tags)
+    const text = el.innerText || el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        btn.classList.add('copied');
+        btn.textContent = 'Copied!';
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.textContent = 'Copy';
+        }, 2000);
+    });
+}
+
+function switchTool(toolId, btn) {
+    document.querySelectorAll('.tool-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tool-instructions').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tool-' + toolId).classList.add('active');
+}
+</script>
+</body>
+</html>
